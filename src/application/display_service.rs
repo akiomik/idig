@@ -1,6 +1,6 @@
 //! Display service for formatting and presenting search results
 
-use crate::File;
+use crate::{ExtractResult, File};
 
 /// Service for handling result display operations
 #[non_exhaustive]
@@ -32,6 +32,24 @@ impl DisplayService {
         }
     }
 
+    /// Display extract results to stdout
+    #[inline]
+    pub fn display_extract_results(&self, result: &ExtractResult) {
+        println!("Extraction completed:");
+        println!("  Extracted: {} files", result.extracted_count);
+        println!("  Skipped: {} files", result.skipped_count);
+
+        if !result.errors.is_empty() {
+            println!("  Errors: {} files", result.errors.len());
+            for error in &result.errors {
+                eprintln!(
+                    "    Error extracting {}: {}",
+                    error.relative_path, error.error
+                );
+            }
+        }
+    }
+
     /// Format search results as a string (useful for testing)
     #[must_use]
     #[inline]
@@ -51,6 +69,28 @@ impl DisplayService {
             output.trim_end().to_owned()
         }
     }
+
+    /// Format extract results as a string (useful for testing)
+    #[must_use]
+    #[inline]
+    pub fn format_extract_results(&self, result: &ExtractResult) -> String {
+        let mut output = format!(
+            "Extraction completed:\n  Extracted: {} files\n  Skipped: {} files",
+            result.extracted_count, result.skipped_count
+        );
+
+        if !result.errors.is_empty() {
+            output.push_str(&format!("\n  Errors: {} files", result.errors.len()));
+            for error in &result.errors {
+                output.push_str(&format!(
+                    "\n    Error extracting {}: {}",
+                    error.relative_path, error.error
+                ));
+            }
+        }
+
+        output
+    }
 }
 
 impl Default for DisplayService {
@@ -63,7 +103,7 @@ impl Default for DisplayService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Domain, FileFlags, FileId, RelativePath};
+    use crate::{Domain, ExtractError, FileFlags, FileId, RelativePath};
 
     fn create_test_file(id: &str, domain: &str, path: &str) -> File {
         // Create a valid 40-character SHA1 hash by padding the id
@@ -106,6 +146,45 @@ mod tests {
 
         let output = service.format_search_results(results);
         let expected = "Found 2 file(s):\n  ID: 1230000000000000000000000000000000000000 | Domain: com.apple.test | Path: Documents/test1.txt\n  ID: 4560000000000000000000000000000000000000 | Domain: com.apple.photos | Path: Library/photo.jpg";
+        assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn test_format_extract_results_success_only() {
+        let service = DisplayService::new();
+        let result = ExtractResult {
+            extracted_count: 5,
+            skipped_count: 2,
+            errors: vec![],
+        };
+
+        let output = service.format_extract_results(&result);
+        let expected = "Extraction completed:\n  Extracted: 5 files\n  Skipped: 2 files";
+        assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn test_format_extract_results_with_errors() {
+        let service = DisplayService::new();
+        let result = ExtractResult {
+            extracted_count: 3,
+            skipped_count: 1,
+            errors: vec![
+                ExtractError {
+                    file_id: "abc123".to_string(),
+                    relative_path: "Documents/test.txt".to_string(),
+                    error: "Permission denied".to_string(),
+                },
+                ExtractError {
+                    file_id: "def456".to_string(),
+                    relative_path: "Photos/image.jpg".to_string(),
+                    error: "Disk full".to_string(),
+                },
+            ],
+        };
+
+        let output = service.format_extract_results(&result);
+        let expected = "Extraction completed:\n  Extracted: 3 files\n  Skipped: 1 files\n  Errors: 2 files\n    Error extracting Documents/test.txt: Permission denied\n    Error extracting Photos/image.jpg: Disk full";
         assert_eq!(output, expected);
     }
 }

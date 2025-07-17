@@ -9,6 +9,7 @@ pub mod domain;
 pub mod infrastructure;
 
 // Re-exports for convenience
+pub use application::extract_service::ExtractError;
 pub use application::{DisplayService, ExtractResult, ExtractService, SearchParams, SearchService};
 pub use cli::{Cli, Commands};
 pub use domain::entities::File;

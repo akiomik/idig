@@ -56,19 +56,7 @@ async fn main() -> Result<()> {
                 .extract(&file_repo, &cli.backup_dir, &output, params)
                 .await?;
 
-            println!("Extraction completed:");
-            println!("  Extracted: {} files", result.extracted_count);
-            println!("  Skipped: {} files", result.skipped_count);
-
-            if !result.errors.is_empty() {
-                println!("  Errors: {} files", result.errors.len());
-                for error in &result.errors {
-                    eprintln!(
-                        "    Error extracting {}: {}",
-                        error.relative_path, error.error
-                    );
-                }
-            }
+            display_service.display_extract_results(&result);
         }
     }
 
