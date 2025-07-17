@@ -1,8 +1,8 @@
 //! Extract service for copying files from iPhone backups
 
+use crate::SearchParams;
 use crate::domain::entities::File;
 use crate::domain::repositories::FileRepository;
-use crate::SearchParams;
 use anyhow::{Context as _, Result};
 use std::fs;
 use std::path::Path;
@@ -171,18 +171,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_extract_service_no_files() {
+    async fn test_extract_service_no_files() -> Result<()> {
         let service = ExtractService::new();
         let repo = MockFileRepository { files: vec![] };
-        let params = SearchParams::new(Some("test.domain".to_string()), None, None, None, false);
+        let params = SearchParams::new(Some("test.domain".to_owned()), None, None, None, false);
 
-        let result = service
-            .extract(&repo, "/backup", "/output", params)
-            .await
-            .unwrap();
+        let result = service.extract(&repo, "/backup", "/output", params).await?;
 
         assert_eq!(result.extracted_count, 0);
         assert_eq!(result.skipped_count, 0);
         assert!(result.errors.is_empty());
+        Ok(())
     }
 }

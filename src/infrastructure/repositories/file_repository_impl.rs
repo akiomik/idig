@@ -6,8 +6,8 @@ use crate::domain::queries::{BasicQuery, CompositeQuery, FileQuery};
 use crate::domain::repositories::FileRepository;
 use crate::domain::value_objects::{Domain, FileFlags, FileId, RelativePath};
 use crate::infrastructure::database::{
-    entities::files::{Column, Entity, Model},
     DatabaseConnection,
+    entities::files::{Column, Entity, Model},
 };
 
 /// Implementation of `FileRepository` using `SeaORM`
@@ -140,7 +140,9 @@ impl FileRepository for FileRepositoryImpl {
 mod tests {
     use super::*;
     use crate::domain::queries::BasicQuery;
-    use sea_orm::{ActiveModelTrait, ConnectionTrait, Database, Set};
+    use crate::infrastructure::database::entities::files::ActiveModel;
+    use anyhow::Context as _;
+    use sea_orm::{ActiveModelTrait as _, ConnectionTrait as _, Database, Set};
 
     async fn setup_test_db() -> Result<DatabaseConnection> {
         // Use in-memory SQLite database for testing
@@ -155,28 +157,26 @@ mod tests {
     }
 
     async fn insert_test_data(db: &DatabaseConnection) -> Result<()> {
-        use crate::infrastructure::database::entities::files::ActiveModel;
-
         // Insert test data (using valid 40-character SHA1 hashes)
         let test_files = vec![
             ActiveModel {
-                file_id: Set("356a192b7913b04c54574d18c28d46e6395428ab".to_string()),
-                domain: Set("com.apple.news".to_string()),
-                relative_path: Set("Documents/news.txt".to_string()),
+                file_id: Set("356a192b7913b04c54574d18c28d46e6395428ab".to_owned()),
+                domain: Set("com.apple.news".to_owned()),
+                relative_path: Set("Documents/news.txt".to_owned()),
                 flags: Set(1),
                 file: Set(b"news content".to_vec()),
             },
             ActiveModel {
-                file_id: Set("da4b9237bacccdf19c0760cab7aec4a8359010b0".to_string()),
-                domain: Set("com.apple.photos".to_string()),
-                relative_path: Set("Pictures/photo.jpg".to_string()),
+                file_id: Set("da4b9237bacccdf19c0760cab7aec4a8359010b0".to_owned()),
+                domain: Set("com.apple.photos".to_owned()),
+                relative_path: Set("Pictures/photo.jpg".to_owned()),
                 flags: Set(2),
                 file: Set(b"photo content".to_vec()),
             },
             ActiveModel {
-                file_id: Set("77de68daecd823babbb58edb1c8e14d7106e83bb".to_string()),
-                domain: Set("com.example.app".to_string()),
-                relative_path: Set("Documents/example.txt".to_string()),
+                file_id: Set("77de68daecd823babbb58edb1c8e14d7106e83bb".to_owned()),
+                domain: Set("com.example.app".to_owned()),
+                relative_path: Set("Documents/example.txt".to_owned()),
                 flags: Set(3),
                 file: Set(b"example content".to_vec()),
             },
@@ -264,8 +264,8 @@ mod tests {
         let repo = FileRepositoryImpl::new(db);
 
         let query = FileQuery::any_of(vec![
-            BasicQuery::DomainExact("com.apple.news".to_string()),
-            BasicQuery::PathContains("Pictures".to_string()),
+            BasicQuery::DomainExact("com.apple.news".to_owned()),
+            BasicQuery::PathContains("Pictures".to_owned()),
         ]);
         let results = repo.search(query).await?;
 
@@ -312,20 +312,19 @@ mod tests {
         let db = setup_test_db().await?;
 
         // Insert test data including records with empty relative paths
-        use crate::infrastructure::database::entities::files::ActiveModel;
         let test_files = vec![
             ActiveModel {
-                file_id: Set("356a192b7913b04c54574d18c28d46e6395428ab".to_string()),
-                domain: Set("com.apple.news".to_string()),
-                relative_path: Set("Documents/news.txt".to_string()),
+                file_id: Set("356a192b7913b04c54574d18c28d46e6395428ab".to_owned()),
+                domain: Set("com.apple.news".to_owned()),
+                relative_path: Set("Documents/news.txt".to_owned()),
                 flags: Set(1),
                 file: Set(b"news content".to_vec()),
             },
             // File with empty relative path (common in iPhone backups)
             ActiveModel {
-                file_id: Set("da4b9237bacccdf19c0760cab7aec4a8359010b0".to_string()),
-                domain: Set("AppDomain-com.apple.photos".to_string()),
-                relative_path: Set("".to_string()), // Empty path
+                file_id: Set("da4b9237bacccdf19c0760cab7aec4a8359010b0".to_owned()),
+                domain: Set("AppDomain-com.apple.photos".to_owned()),
+                relative_path: Set(String::new()), // Empty path
                 flags: Set(2),
                 file: Set(b"photo content".to_vec()),
             },
@@ -347,7 +346,7 @@ mod tests {
         let empty_path_file = results
             .iter()
             .find(|f| f.domain().value() == "AppDomain-com.apple.photos")
-            .expect("Should find the file with originally empty path");
+            .context("Should find the file with originally empty path")?;
 
         // Verify that empty path remains empty
         assert_eq!(empty_path_file.relative_path().value(), "");
@@ -360,11 +359,10 @@ mod tests {
         let db = setup_test_db().await?;
 
         // Insert file with empty relative path
-        use crate::infrastructure::database::entities::files::ActiveModel;
         let test_file = ActiveModel {
-            file_id: Set("da4b9237bacccdf19c0760cab7aec4a8359010b0".to_string()),
-            domain: Set("AppDomain-com.apple.photos".to_string()),
-            relative_path: Set("".to_string()), // Empty path
+            file_id: Set("da4b9237bacccdf19c0760cab7aec4a8359010b0".to_owned()),
+            domain: Set("AppDomain-com.apple.photos".to_owned()),
+            relative_path: Set(String::new()), // Empty path
             flags: Set(2),
             file: Set(b"photo content".to_vec()),
         };
@@ -388,11 +386,10 @@ mod tests {
         let db = setup_test_db().await?;
 
         // Insert file with empty relative path
-        use crate::infrastructure::database::entities::files::ActiveModel;
         let test_file = ActiveModel {
-            file_id: Set("da4b9237bacccdf19c0760cab7aec4a8359010b0".to_string()),
-            domain: Set("AppDomain-com.apple.photos".to_string()),
-            relative_path: Set("".to_string()), // Empty path
+            file_id: Set("da4b9237bacccdf19c0760cab7aec4a8359010b0".to_owned()),
+            domain: Set("AppDomain-com.apple.photos".to_owned()),
+            relative_path: Set(String::new()), // Empty path
             flags: Set(2),
             file: Set(b"photo content".to_vec()),
         };
@@ -416,33 +413,32 @@ mod tests {
         let db = setup_test_db().await?;
 
         // Insert test data with different domains and paths to test sorting
-        use crate::infrastructure::database::entities::files::ActiveModel;
         let test_files = vec![
             ActiveModel {
-                file_id: Set("356a192b7913b04c54574d18c28d46e6395428ab".to_string()),
-                domain: Set("com.example.app".to_string()),
-                relative_path: Set("Documents/file2.txt".to_string()),
+                file_id: Set("356a192b7913b04c54574d18c28d46e6395428ab".to_owned()),
+                domain: Set("com.example.app".to_owned()),
+                relative_path: Set("Documents/file2.txt".to_owned()),
                 flags: Set(1),
                 file: Set(b"content".to_vec()),
             },
             ActiveModel {
-                file_id: Set("da4b9237bacccdf19c0760cab7aec4a8359010b0".to_string()),
-                domain: Set("com.apple.photos".to_string()),
-                relative_path: Set("Pictures/photo.jpg".to_string()),
+                file_id: Set("da4b9237bacccdf19c0760cab7aec4a8359010b0".to_owned()),
+                domain: Set("com.apple.photos".to_owned()),
+                relative_path: Set("Pictures/photo.jpg".to_owned()),
                 flags: Set(2),
                 file: Set(b"content".to_vec()),
             },
             ActiveModel {
-                file_id: Set("77de68daecd823babbb58edb1c8e14d7106e83bb".to_string()),
-                domain: Set("com.apple.photos".to_string()),
-                relative_path: Set("Documents/file1.txt".to_string()),
+                file_id: Set("77de68daecd823babbb58edb1c8e14d7106e83bb".to_owned()),
+                domain: Set("com.apple.photos".to_owned()),
+                relative_path: Set("Documents/file1.txt".to_owned()),
                 flags: Set(3),
                 file: Set(b"content".to_vec()),
             },
             ActiveModel {
-                file_id: Set("629e88b8f2b2f0c8b6f8c8f2b2f0c8b6f8c8f2b2".to_string()),
-                domain: Set("com.apple.news".to_string()),
-                relative_path: Set("".to_string()), // Empty path should come first
+                file_id: Set("629e88b8f2b2f0c8b6f8c8f2b2f0c8b6f8c8f2b2".to_owned()),
+                domain: Set("com.apple.news".to_owned()),
+                relative_path: Set(String::new()), // Empty path should come first
                 flags: Set(4),
                 file: Set(b"content".to_vec()),
             },

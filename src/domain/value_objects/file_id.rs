@@ -59,13 +59,16 @@ impl From<FileId> for String {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use super::*;
 
     #[test]
-    fn test_file_id_creation() {
+    fn test_file_id_creation() -> Result<()> {
         let valid_sha1 = "a1b2c3d4e5f6789012345678901234567890abcd";
-        let file_id = FileId::new(valid_sha1).unwrap();
+        let file_id = FileId::new(valid_sha1)?;
         assert_eq!(file_id.value(), "a1b2c3d4e5f6789012345678901234567890abcd");
+        Ok(())
     }
 
     #[test]
@@ -87,9 +90,10 @@ mod tests {
     }
 
     #[test]
-    fn test_file_id_case_normalization() {
+    fn test_file_id_case_normalization() -> Result<()> {
         let uppercase_sha1 = "A1B2C3D4E5F6789012345678901234567890ABCD";
-        let file_id = FileId::new(uppercase_sha1).unwrap();
+        let file_id = FileId::new(uppercase_sha1)?;
         assert_eq!(file_id.value(), "a1b2c3d4e5f6789012345678901234567890abcd");
+        Ok(())
     }
 }

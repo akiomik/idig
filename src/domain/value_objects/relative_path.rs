@@ -45,30 +45,34 @@ impl From<RelativePath> for String {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use super::*;
 
     #[test]
-    fn test_relative_path_creation() {
-        let path = RelativePath::new("Documents/file.txt".to_string()).unwrap();
+    fn test_relative_path_creation() -> Result<()> {
+        let path = RelativePath::new("Documents/file.txt".to_owned())?;
         assert_eq!(path.value(), "Documents/file.txt");
+        Ok(())
     }
 
     #[test]
     fn test_relative_path_absolute_path_rejected() {
-        let absolute_path = "/absolute/path".to_string();
+        let absolute_path = "/absolute/path".to_owned();
         assert!(RelativePath::new(absolute_path).is_err());
     }
 
     #[test]
     fn test_relative_path_windows_absolute_rejected() {
-        let windows_absolute = "\\absolute\\path".to_string();
+        let windows_absolute = "\\absolute\\path".to_owned();
         assert!(RelativePath::new(windows_absolute).is_err());
     }
 
     #[test]
-    fn test_relative_path_empty() {
-        let empty_path = "".to_string();
-        let path = RelativePath::new(empty_path).unwrap();
+    fn test_relative_path_empty() -> Result<()> {
+        let empty_path = String::new();
+        let path = RelativePath::new(empty_path)?;
         assert_eq!(path.value(), "");
+        Ok(())
     }
 }

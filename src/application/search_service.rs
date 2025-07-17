@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_build_query_single_condition() {
-        let params = SearchParams::new(Some("com.apple.test".to_string()), None, None, None, false);
+        let params = SearchParams::new(Some("com.apple.test".to_owned()), None, None, None, false);
 
         let result = params.build_query();
         assert!(result.is_ok());
@@ -153,10 +153,10 @@ mod tests {
     #[test]
     fn test_build_query_multiple_conditions_and() {
         let params = SearchParams::new(
-            Some("com.apple.test".to_string()),
+            Some("com.apple.test".to_owned()),
             None,
             None,
-            Some("Documents".to_string()),
+            Some("Documents".to_owned()),
             false,
         );
 
@@ -175,20 +175,20 @@ mod tests {
         let params = SearchParams::new(None, None, None, None, false);
 
         let result = params.build_query();
+
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("At least one search condition"));
+        if let Some(err) = result.err() {
+            assert!(err.to_string().contains("At least one search condition"));
+        }
     }
 
     #[test]
     fn test_build_query_multiple_conditions_or() {
         let params = SearchParams::new(
-            Some("com.apple.test".to_string()),
+            Some("com.apple.test".to_owned()),
             None,
             None,
-            Some("Documents".to_string()),
+            Some("Documents".to_owned()),
             true,
         );
 
