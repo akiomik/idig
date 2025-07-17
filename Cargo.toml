@@ -14,3 +14,35 @@ readme = "README.md"
 sea-orm = { version = "0.11", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
 tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
+
+[lints.clippy]
+cargo = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+correctness = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+# cargo
+multiple_crate_versions = "allow"
+# pedantic
+module_name_repetitions = "allow"
+# restrictions
+absolute_paths = "warn"
+allow_attributes_without_reason = "warn"
+arithmetic_side_effects = "warn"
+blanket_clippy_restriction_lints = "warn"
+clone_on_ref_ptr = "warn"
+empty_structs_with_brackets = "warn"
+exhaustive_enums = "warn"
+exhaustive_structs = "warn"
+expect_used = "warn"
+integer_division_remainder_used = "warn"
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+missing_inline_in_public_items = "warn"
+shadow_unrelated = "warn"
+str_to_string = "warn"
+unwrap_in_result = "warn"
+unused_trait_names = "warn"
+unwrap_used = "warn"
