@@ -1,6 +1,36 @@
 //! Display service for formatting and presenting search results
 
 use crate::{ExtractResult, File};
+use tabled::{Table, Tabled, settings::Style};
+
+/// Represents a file for table display
+#[derive(Tabled)]
+struct FileTableRow {
+    #[tabled(rename = "ID")]
+    id: String,
+    #[tabled(rename = "Domain")]
+    domain: String,
+    #[tabled(rename = "Path")]
+    path: String,
+}
+
+/// Represents extraction statistics for table display
+#[derive(Tabled)]
+struct ExtractionStatsRow {
+    #[tabled(rename = "Status")]
+    status: String,
+    #[tabled(rename = "Count")]
+    count: usize,
+}
+
+/// Represents extraction errors for table display
+#[derive(Tabled)]
+struct ExtractionErrorRow {
+    #[tabled(rename = "File Path")]
+    path: String,
+    #[tabled(rename = "Error")]
+    error: String,
+}
 
 /// Service for handling result display operations
 #[non_exhaustive]
@@ -21,14 +51,18 @@ impl DisplayService {
             println!("No files found matching the search criteria.");
         } else {
             println!("Found {} file(s):", results.len());
-            for file in results {
-                println!(
-                    "  ID: {} | Domain: {} | Path: {}",
-                    file.file_id().value(),
-                    file.domain().value(),
-                    file.relative_path().value()
-                );
-            }
+            let table_rows: Vec<FileTableRow> = results
+                .into_iter()
+                .map(|file| FileTableRow {
+                    id: file.file_id().value().to_owned(),
+                    domain: file.domain().value().to_owned(),
+                    path: file.relative_path().value().to_owned(),
+                })
+                .collect();
+
+            let mut table = Table::new(table_rows);
+            table.with(Style::rounded());
+            println!("{table}");
         }
     }
 
@@ -36,17 +70,42 @@ impl DisplayService {
     #[inline]
     pub fn display_extract_results(&self, result: &ExtractResult) {
         println!("Extraction completed:");
-        println!("  Extracted: {} files", result.extracted_count);
-        println!("  Skipped: {} files", result.skipped_count);
 
+        // Display statistics table
+        let stats_rows = vec![
+            ExtractionStatsRow {
+                status: "Extracted".to_owned(),
+                count: result.extracted_count,
+            },
+            ExtractionStatsRow {
+                status: "Skipped".to_owned(),
+                count: result.skipped_count,
+            },
+            ExtractionStatsRow {
+                status: "Errors".to_owned(),
+                count: result.errors.len(),
+            },
+        ];
+
+        let mut stats_table = Table::new(stats_rows);
+        stats_table.with(Style::rounded());
+        println!("{stats_table}");
+
+        // Display errors table if there are any errors
         if !result.errors.is_empty() {
-            println!("  Errors: {} files", result.errors.len());
-            for error in &result.errors {
-                eprintln!(
-                    "    Error extracting {}: {}",
-                    error.relative_path, error.error
-                );
-            }
+            println!("\nError details:");
+            let error_rows: Vec<ExtractionErrorRow> = result
+                .errors
+                .iter()
+                .map(|error| ExtractionErrorRow {
+                    path: error.relative_path.clone(),
+                    error: error.error.clone(),
+                })
+                .collect();
+
+            let mut error_table = Table::new(error_rows);
+            error_table.with(Style::rounded());
+            println!("{error_table}");
         }
     }
 
@@ -58,15 +117,19 @@ impl DisplayService {
             "No files found matching the search criteria.".to_owned()
         } else {
             let mut output = format!("Found {} file(s):\n", results.len());
-            for file in results {
-                output.push_str(&format!(
-                    "  ID: {} | Domain: {} | Path: {}\n",
-                    file.file_id().value(),
-                    file.domain().value(),
-                    file.relative_path().value()
-                ));
-            }
-            output.trim_end().to_owned()
+            let table_rows: Vec<FileTableRow> = results
+                .into_iter()
+                .map(|file| FileTableRow {
+                    id: file.file_id().value().to_owned(),
+                    domain: file.domain().value().to_owned(),
+                    path: file.relative_path().value().to_owned(),
+                })
+                .collect();
+
+            let mut table = Table::new(table_rows);
+            table.with(Style::rounded());
+            output.push_str(&table.to_string());
+            output
         }
     }
 
@@ -74,19 +137,43 @@ impl DisplayService {
     #[must_use]
     #[inline]
     pub fn format_extract_results(&self, result: &ExtractResult) -> String {
-        let mut output = format!(
-            "Extraction completed:\n  Extracted: {} files\n  Skipped: {} files",
-            result.extracted_count, result.skipped_count
-        );
+        let mut output = "Extraction completed:\n".to_owned();
 
+        // Format statistics table
+        let stats_rows = vec![
+            ExtractionStatsRow {
+                status: "Extracted".to_owned(),
+                count: result.extracted_count,
+            },
+            ExtractionStatsRow {
+                status: "Skipped".to_owned(),
+                count: result.skipped_count,
+            },
+            ExtractionStatsRow {
+                status: "Errors".to_owned(),
+                count: result.errors.len(),
+            },
+        ];
+
+        let mut stats_table = Table::new(stats_rows);
+        stats_table.with(Style::rounded());
+        output.push_str(&stats_table.to_string());
+
+        // Format errors table if there are any errors
         if !result.errors.is_empty() {
-            output.push_str(&format!("\n  Errors: {} files", result.errors.len()));
-            for error in &result.errors {
-                output.push_str(&format!(
-                    "\n    Error extracting {}: {}",
-                    error.relative_path, error.error
-                ));
-            }
+            output.push_str("\nError details:\n");
+            let error_rows: Vec<ExtractionErrorRow> = result
+                .errors
+                .iter()
+                .map(|error| ExtractionErrorRow {
+                    path: error.relative_path.clone(),
+                    error: error.error.clone(),
+                })
+                .collect();
+
+            let mut error_table = Table::new(error_rows);
+            error_table.with(Style::rounded());
+            output.push_str(&error_table.to_string());
         }
 
         output
@@ -135,8 +222,14 @@ mod tests {
         let results = vec![file];
 
         let output = service.format_search_results(results);
-        let expected = "Found 1 file(s):\n  ID: 1230000000000000000000000000000000000000 | Domain: com.apple.test | Path: Documents/test.txt";
-        assert_eq!(output, expected);
+        // Test that the output contains the expected data in table format
+        assert!(output.contains("Found 1 file(s):"));
+        assert!(output.contains("1230000000000000000000000000000000000000"));
+        assert!(output.contains("com.apple.test"));
+        assert!(output.contains("Documents/test.txt"));
+        assert!(output.contains("ID"));
+        assert!(output.contains("Domain"));
+        assert!(output.contains("Path"));
         Ok(())
     }
 
@@ -148,8 +241,14 @@ mod tests {
         let results = vec![file1, file2];
 
         let output = service.format_search_results(results);
-        let expected = "Found 2 file(s):\n  ID: 1230000000000000000000000000000000000000 | Domain: com.apple.test | Path: Documents/test1.txt\n  ID: 4560000000000000000000000000000000000000 | Domain: com.apple.photos | Path: Library/photo.jpg";
-        assert_eq!(output, expected);
+        // Test that the output contains the expected data in table format
+        assert!(output.contains("Found 2 file(s):"));
+        assert!(output.contains("1230000000000000000000000000000000000000"));
+        assert!(output.contains("4560000000000000000000000000000000000000"));
+        assert!(output.contains("com.apple.test"));
+        assert!(output.contains("com.apple.photos"));
+        assert!(output.contains("Documents/test1.txt"));
+        assert!(output.contains("Library/photo.jpg"));
         Ok(())
     }
 
@@ -163,8 +262,14 @@ mod tests {
         };
 
         let output = service.format_extract_results(&result);
-        let expected = "Extraction completed:\n  Extracted: 5 files\n  Skipped: 2 files";
-        assert_eq!(output, expected);
+        // Test that the output contains the expected data in table format
+        assert!(output.contains("Extraction completed:"));
+        assert!(output.contains("Extracted"));
+        assert!(output.contains('5'));
+        assert!(output.contains("Skipped"));
+        assert!(output.contains('2'));
+        assert!(output.contains("Errors"));
+        assert!(output.contains('0'));
     }
 
     #[test]
@@ -188,7 +293,15 @@ mod tests {
         };
 
         let output = service.format_extract_results(&result);
-        let expected = "Extraction completed:\n  Extracted: 3 files\n  Skipped: 1 files\n  Errors: 2 files\n    Error extracting Documents/test.txt: Permission denied\n    Error extracting Photos/image.jpg: Disk full";
-        assert_eq!(output, expected);
+        // Test that the output contains the expected data in table format
+        assert!(output.contains("Extraction completed:"));
+        assert!(output.contains('3'));
+        assert!(output.contains('1'));
+        assert!(output.contains('2'));
+        assert!(output.contains("Error details:"));
+        assert!(output.contains("Documents/test.txt"));
+        assert!(output.contains("Permission denied"));
+        assert!(output.contains("Photos/image.jpg"));
+        assert!(output.contains("Disk full"));
     }
 }
