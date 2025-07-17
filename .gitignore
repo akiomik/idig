@@ -1,3 +1,4 @@
 /target
 Manifest.db
 Manifest.db-wal
+.DS_Store
