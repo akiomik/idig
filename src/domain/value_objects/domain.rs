@@ -51,17 +51,20 @@ impl From<Domain> for String {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use super::*;
 
     #[test]
-    fn test_domain_creation() {
-        let domain = Domain::new("com.example.app".to_string()).unwrap();
+    fn test_domain_creation() -> Result<()> {
+        let domain = Domain::new("com.example.app".to_owned())?;
         assert_eq!(domain.value(), "com.example.app");
+        Ok(())
     }
 
     #[test]
     fn test_domain_empty() {
-        let empty_domain = "".to_string();
+        let empty_domain = String::new();
         assert!(Domain::new(empty_domain).is_err());
     }
 

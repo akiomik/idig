@@ -78,7 +78,7 @@ mod tests {
         assert_eq!(
             query,
             FileQuery::Basic(BasicQuery::DomainExact(
-                "AppDomain-com.apple.news".to_string()
+                "AppDomain-com.apple.news".to_owned()
             ))
         );
     }
@@ -88,7 +88,7 @@ mod tests {
         let query = FileQuery::domain_contains("apple");
         assert_eq!(
             query,
-            FileQuery::Basic(BasicQuery::DomainContains("apple".to_string()))
+            FileQuery::Basic(BasicQuery::DomainContains("apple".to_owned()))
         );
     }
 
@@ -97,7 +97,7 @@ mod tests {
         let query = FileQuery::path_exact("Documents/file.txt");
         assert_eq!(
             query,
-            FileQuery::Basic(BasicQuery::PathExact("Documents/file.txt".to_string()))
+            FileQuery::Basic(BasicQuery::PathExact("Documents/file.txt".to_owned()))
         );
     }
 
@@ -106,15 +106,15 @@ mod tests {
         let query = FileQuery::path_contains("Documents");
         assert_eq!(
             query,
-            FileQuery::Basic(BasicQuery::PathContains("Documents".to_string()))
+            FileQuery::Basic(BasicQuery::PathContains("Documents".to_owned()))
         );
     }
 
     #[test]
     fn test_any_of_query() {
         let basic_queries = vec![
-            BasicQuery::DomainExact("AppDomain-com.apple.news".to_string()),
-            BasicQuery::PathContains("Documents".to_string()),
+            BasicQuery::DomainExact("AppDomain-com.apple.news".to_owned()),
+            BasicQuery::PathContains("Documents".to_owned()),
         ];
         let query = FileQuery::any_of(basic_queries.clone());
         assert_eq!(

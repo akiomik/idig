@@ -102,19 +102,21 @@ impl Default for DisplayService {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use super::*;
     use crate::{Domain, ExtractError, FileFlags, FileId, RelativePath};
 
-    fn create_test_file(id: &str, domain: &str, path: &str) -> File {
+    fn create_test_file(id: &str, domain: &str, path: &str) -> Result<File> {
         // Create a valid 40-character SHA1 hash by padding the id
-        let padded_id = format!("{:0<40}", id);
-        File::new(
-            FileId::new(&padded_id).unwrap(),
-            Domain::new(domain.to_string()).unwrap(),
-            RelativePath::new(path.to_string()).unwrap(),
+        let padded_id = format!("{id:0<40}");
+        Ok(File::new(
+            FileId::new(&padded_id)?,
+            Domain::new(domain.to_owned())?,
+            RelativePath::new(path.to_owned())?,
             FileFlags::new(0),
             vec![], // empty file metadata
-        )
+        ))
     }
 
     #[test]
@@ -127,26 +129,28 @@ mod tests {
     }
 
     #[test]
-    fn test_format_search_results_single_file() {
+    fn test_format_search_results_single_file() -> Result<()> {
         let service = DisplayService::new();
-        let file = create_test_file("123", "com.apple.test", "Documents/test.txt");
+        let file = create_test_file("123", "com.apple.test", "Documents/test.txt")?;
         let results = vec![file];
 
         let output = service.format_search_results(results);
         let expected = "Found 1 file(s):\n  ID: 1230000000000000000000000000000000000000 | Domain: com.apple.test | Path: Documents/test.txt";
         assert_eq!(output, expected);
+        Ok(())
     }
 
     #[test]
-    fn test_format_search_results_multiple_files() {
+    fn test_format_search_results_multiple_files() -> Result<()> {
         let service = DisplayService::new();
-        let file1 = create_test_file("123", "com.apple.test", "Documents/test1.txt");
-        let file2 = create_test_file("456", "com.apple.photos", "Library/photo.jpg");
+        let file1 = create_test_file("123", "com.apple.test", "Documents/test1.txt")?;
+        let file2 = create_test_file("456", "com.apple.photos", "Library/photo.jpg")?;
         let results = vec![file1, file2];
 
         let output = service.format_search_results(results);
         let expected = "Found 2 file(s):\n  ID: 1230000000000000000000000000000000000000 | Domain: com.apple.test | Path: Documents/test1.txt\n  ID: 4560000000000000000000000000000000000000 | Domain: com.apple.photos | Path: Library/photo.jpg";
         assert_eq!(output, expected);
+        Ok(())
     }
 
     #[test]
@@ -171,14 +175,14 @@ mod tests {
             skipped_count: 1,
             errors: vec![
                 ExtractError {
-                    file_id: "abc123".to_string(),
-                    relative_path: "Documents/test.txt".to_string(),
-                    error: "Permission denied".to_string(),
+                    file_id: "abc123".to_owned(),
+                    relative_path: "Documents/test.txt".to_owned(),
+                    error: "Permission denied".to_owned(),
                 },
                 ExtractError {
-                    file_id: "def456".to_string(),
-                    relative_path: "Photos/image.jpg".to_string(),
-                    error: "Disk full".to_string(),
+                    file_id: "def456".to_owned(),
+                    relative_path: "Photos/image.jpg".to_owned(),
+                    error: "Disk full".to_owned(),
                 },
             ],
         };

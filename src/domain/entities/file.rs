@@ -125,13 +125,15 @@ impl File {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use super::*;
 
     #[test]
-    fn test_file_entity_creation() {
-        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd").unwrap();
-        let domain = Domain::new("AppDomain-com.apple.news".to_string()).unwrap();
-        let relative_path = RelativePath::new("Documents/test.txt".to_string()).unwrap();
+    fn test_file_entity_creation() -> Result<()> {
+        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
+        let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
+        let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
         let flags = FileFlags::new(0x01);
         let metadata = b"test metadata".to_vec();
 
@@ -148,13 +150,14 @@ mod tests {
         assert_eq!(file.relative_path(), &relative_path);
         assert_eq!(file.flags(), &flags);
         assert_eq!(file.file_metadata(), &metadata);
+        Ok(())
     }
 
     #[test]
-    fn test_file_entity_reconstruct() {
-        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd").unwrap();
-        let domain = Domain::new("AppDomain-com.apple.news".to_string()).unwrap();
-        let relative_path = RelativePath::new("Documents/test.txt".to_string()).unwrap();
+    fn test_file_entity_reconstruct() -> Result<()> {
+        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
+        let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
+        let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
         let flags = FileFlags::new(0x01);
         let metadata = b"test metadata".to_vec();
 
@@ -171,13 +174,14 @@ mod tests {
         assert_eq!(file.relative_path(), &relative_path);
         assert_eq!(file.flags(), &flags);
         assert_eq!(file.file_metadata(), &metadata);
+        Ok(())
     }
 
     #[test]
-    fn test_file_entity_update_flags() {
-        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd").unwrap();
-        let domain = Domain::new("AppDomain-com.apple.news".to_string()).unwrap();
-        let relative_path = RelativePath::new("Documents/test.txt".to_string()).unwrap();
+    fn test_file_entity_update_flags() -> Result<()> {
+        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
+        let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
+        let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
         let flags = FileFlags::new(0x01);
         let metadata = b"test metadata".to_vec();
 
@@ -189,13 +193,14 @@ mod tests {
         assert_eq!(file.flags(), &new_flags);
         assert!(file.has_flag(0x02));
         assert!(!file.has_flag(0x01));
+        Ok(())
     }
 
     #[test]
-    fn test_file_entity_update_metadata() {
-        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd").unwrap();
-        let domain = Domain::new("AppDomain-com.apple.news".to_string()).unwrap();
-        let relative_path = RelativePath::new("Documents/test.txt".to_string()).unwrap();
+    fn test_file_entity_update_metadata() -> Result<()> {
+        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
+        let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
+        let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
         let flags = FileFlags::new(0x01);
         let metadata = b"test metadata".to_vec();
 
@@ -205,5 +210,6 @@ mod tests {
         file.update_metadata(new_metadata.clone());
 
         assert_eq!(file.file_metadata(), &new_metadata);
+        Ok(())
     }
 }

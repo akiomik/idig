@@ -9,7 +9,6 @@ use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "Files")]
-#[non_exhaustive]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, column_name = "fileID")]
     pub file_id: String,
@@ -21,7 +20,6 @@ pub struct Model {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-#[non_exhaustive]
 pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
