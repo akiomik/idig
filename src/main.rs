@@ -6,7 +6,7 @@ use idig::{
     Cli, Commands, DatabaseConnection, DisplayService, ExtractService, FileRepositoryImpl,
     SearchParams, SearchService,
 };
-use std::{path::Path, process::exit};
+use std::path::Path;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -15,11 +15,10 @@ async fn main() -> Result<()> {
     // Database connection initialization
     let manifest_path = Path::new(&cli.backup_dir).join("Manifest.db");
     if !manifest_path.exists() {
-        eprintln!(
-            "Error: Manifest.db not found in backup directory: {}",
+        return Err(anyhow::anyhow!(
+            "Manifest.db not found in backup directory: {}",
             cli.backup_dir
-        );
-        exit(1);
+        ));
     }
     let db_url = format!("sqlite://{}", manifest_path.display());
     let db = DatabaseConnection::new(&db_url).await?;
@@ -39,15 +38,8 @@ async fn main() -> Result<()> {
             let params =
                 SearchParams::new(domain_exact, domain_contains, path_exact, path_contains, or);
 
-            match search_service.search(&file_repo, params).await {
-                Ok(results) => {
-                    display_service.display_search_results(results);
-                }
-                Err(e) => {
-                    eprintln!("Error: {e}");
-                    exit(1);
-                }
-            }
+            let results = search_service.search(&file_repo, params).await?;
+            display_service.display_search_results(results);
         }
         Commands::Extract {
             output,
@@ -60,28 +52,21 @@ async fn main() -> Result<()> {
             let params =
                 SearchParams::new(domain_exact, domain_contains, path_exact, path_contains, or);
 
-            match extract_service
+            let result = extract_service
                 .extract(&file_repo, &cli.backup_dir, &output, params)
-                .await
-            {
-                Ok(result) => {
-                    println!("Extraction completed:");
-                    println!("  Extracted: {} files", result.extracted_count);
-                    println!("  Skipped: {} files", result.skipped_count);
+                .await?;
 
-                    if !result.errors.is_empty() {
-                        println!("  Errors: {} files", result.errors.len());
-                        for error in &result.errors {
-                            eprintln!(
-                                "    Error extracting {}: {}",
-                                error.relative_path, error.error
-                            );
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Error: {e}");
-                    exit(1);
+            println!("Extraction completed:");
+            println!("  Extracted: {} files", result.extracted_count);
+            println!("  Skipped: {} files", result.skipped_count);
+
+            if !result.errors.is_empty() {
+                println!("  Errors: {} files", result.errors.len());
+                for error in &result.errors {
+                    eprintln!(
+                        "    Error extracting {}: {}",
+                        error.relative_path, error.error
+                    );
                 }
             }
         }
