@@ -889,6 +889,7 @@ name = "idig"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitflags",
  "clap",
  "sea-orm",
  "shellexpand",

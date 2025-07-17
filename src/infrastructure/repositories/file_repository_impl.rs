@@ -31,7 +31,7 @@ impl FileRepositoryImpl {
             Domain::new(model.domain).map_err(|e| anyhow::anyhow!("Invalid Domain: {}", e))?;
         let relative_path = RelativePath::new(model.relative_path)
             .map_err(|e| anyhow::anyhow!("Invalid RelativePath: {}", e))?;
-        let flags = FileFlags::new(model.flags);
+        let flags = FileFlags::from_bits_truncate(model.flags);
 
         Ok(File::reconstruct(
             file_id,
