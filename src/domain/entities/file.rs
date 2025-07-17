@@ -118,8 +118,8 @@ impl File {
     /// Checks if the file has a specific flag
     #[must_use]
     #[inline]
-    pub const fn has_flag(&self, flag: i32) -> bool {
-        self.flags.has_flag(flag)
+    pub const fn has_flag(&self, flag: FileFlags) -> bool {
+        self.flags.contains(flag)
     }
 }
 
@@ -134,7 +134,7 @@ mod tests {
         let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
         let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
         let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
-        let flags = FileFlags::new(0x01);
+        let flags = FileFlags::REGULAR_FILE;
         let metadata = b"test metadata".to_vec();
 
         let file = File::new(
@@ -158,7 +158,7 @@ mod tests {
         let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
         let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
         let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
-        let flags = FileFlags::new(0x01);
+        let flags = FileFlags::REGULAR_FILE;
         let metadata = b"test metadata".to_vec();
 
         let file = File::reconstruct(
@@ -182,17 +182,17 @@ mod tests {
         let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
         let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
         let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
-        let flags = FileFlags::new(0x01);
+        let flags = FileFlags::REGULAR_FILE;
         let metadata = b"test metadata".to_vec();
 
         let mut file = File::new(file_id, domain, relative_path, flags, metadata);
 
-        let new_flags = FileFlags::new(0x02);
+        let new_flags = FileFlags::DIRECTORY;
         file.update_flags(new_flags.clone());
 
         assert_eq!(file.flags(), &new_flags);
-        assert!(file.has_flag(0x02));
-        assert!(!file.has_flag(0x01));
+        assert!(file.has_flag(FileFlags::DIRECTORY));
+        assert!(!file.has_flag(FileFlags::REGULAR_FILE));
         Ok(())
     }
 
@@ -201,7 +201,7 @@ mod tests {
         let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
         let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
         let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
-        let flags = FileFlags::new(0x01);
+        let flags = FileFlags::REGULAR_FILE;
         let metadata = b"test metadata".to_vec();
 
         let mut file = File::new(file_id, domain, relative_path, flags, metadata);

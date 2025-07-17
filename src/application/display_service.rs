@@ -201,7 +201,7 @@ mod tests {
             FileId::new(&padded_id)?,
             Domain::new(domain.to_owned())?,
             RelativePath::new(path.to_owned())?,
-            FileFlags::new(0),
+            FileFlags::default(),
             vec![], // empty file metadata
         ))
     }
