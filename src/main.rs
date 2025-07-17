@@ -6,14 +6,22 @@ use idig::{
     Cli, Commands, DatabaseConnection, DisplayService, FileRepositoryImpl, SearchParams,
     SearchService,
 };
-use std::process::exit;
+use std::{path::Path, process::exit};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     // Database connection initialization
-    let db_url = format!("sqlite://{}", cli.database);
+    let manifest_path = Path::new(&cli.backup_dir).join("Manifest.db");
+    if !manifest_path.exists() {
+        eprintln!(
+            "Error: Manifest.db not found in backup directory: {}",
+            cli.backup_dir
+        );
+        exit(1);
+    }
+    let db_url = format!("sqlite://{}", manifest_path.display());
     let db = DatabaseConnection::new(&db_url).await?;
     let file_repo = FileRepositoryImpl::new(db);
     let search_service = SearchService::new();

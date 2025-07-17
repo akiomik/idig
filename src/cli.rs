@@ -8,9 +8,9 @@ use clap::{Parser, Subcommand, ValueHint};
 #[command(version)]
 #[non_exhaustive]
 pub struct Cli {
-    /// Database file path
-    #[arg(short, long, value_hint = ValueHint::FilePath)]
-    pub database: String,
+    /// iPhone backup directory path (containing Manifest.db)
+    #[arg(short = 'b', long, value_hint = ValueHint::DirPath)]
+    pub backup_dir: String,
 
     #[command(subcommand)]
     pub command: Commands,
