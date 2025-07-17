@@ -1,7 +1,14 @@
 [package]
 name = "idig"
+description = "A tool for extracting files from iPhone backups"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/akiomik/idig"
+license = "Apache-2.0"
+authors = ["Akiomi Kamakura <akiomik@gmail.com>"]
+keywords = ["iphone", "backup"]
+categories = ["command-line-utilities"]
+readme = "README.md"
 
 [dependencies]
 sea-orm = { version = "0.11", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
