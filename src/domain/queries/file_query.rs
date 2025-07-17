@@ -59,6 +59,13 @@ impl FileQuery {
     pub const fn any_of(queries: Vec<BasicQuery>) -> Self {
         Self::Composite(CompositeQuery::AnyOf(queries))
     }
+
+    /// Create a query that matches all of the given basic queries
+    #[must_use]
+    #[inline]
+    pub const fn all_of(queries: Vec<BasicQuery>) -> Self {
+        Self::Composite(CompositeQuery::AllOf(queries))
+    }
 }
 
 #[cfg(test)]
