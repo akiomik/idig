@@ -15,6 +15,9 @@ sea-orm = { version = "0.11", features = ["sqlx-sqlite", "runtime-tokio-rustls",
 tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
 
+[dev-dependencies]
+sea-orm = { version = "0.11", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros", "mock"] }
+
 [lints.clippy]
 cargo = { level = "warn", priority = -1 }
 complexity = { level = "warn", priority = -1 }
