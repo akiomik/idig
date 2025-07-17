@@ -1,6 +1,7 @@
 //! CLI configuration and command definitions
 
 use clap::{Parser, Subcommand, ValueHint};
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "idig")]
@@ -10,7 +11,7 @@ use clap::{Parser, Subcommand, ValueHint};
 pub struct Cli {
     /// iPhone backup directory path (containing Manifest.db)
     #[arg(short = 'b', long, value_hint = ValueHint::DirPath)]
-    pub backup_dir: String,
+    pub backup_dir: PathBuf,
 
     #[command(subcommand)]
     pub command: Commands,

@@ -6,18 +6,22 @@ use idig::{
     Cli, Commands, DatabaseConnection, DisplayService, ExtractService, FileRepositoryImpl,
     SearchParams, SearchService,
 };
-use std::path::Path;
+use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     // Database connection initialization
-    let manifest_path = Path::new(&cli.backup_dir).join("Manifest.db");
+    // Expand home directory (~) in backup_dir path
+    let backup_dir_str = cli.backup_dir.to_string_lossy();
+    let expanded_backup_dir = shellexpand::tilde(&backup_dir_str);
+    let backup_path = PathBuf::from(expanded_backup_dir.as_ref());
+    let manifest_path = backup_path.join("Manifest.db");
     if !manifest_path.exists() {
         return Err(anyhow::anyhow!(
             "Manifest.db not found in backup directory: {}",
-            cli.backup_dir
+            backup_path.display()
         ));
     }
     let db_url = format!("sqlite://{}", manifest_path.display());
@@ -53,7 +57,7 @@ async fn main() -> Result<()> {
                 SearchParams::new(domain_exact, domain_contains, path_exact, path_contains, or);
 
             let result = extract_service
-                .extract(&file_repo, &cli.backup_dir, &output, params)
+                .extract(&file_repo, &backup_path.to_string_lossy(), &output, params)
                 .await?;
 
             display_service.display_extract_results(&result);
