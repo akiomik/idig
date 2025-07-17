@@ -3,10 +3,12 @@
 //!
 //! A tool for extracting files from iPhone backups.
 
+pub mod cli;
 pub mod domain;
 pub mod infrastructure;
 
 // Re-exports for convenience
+pub use cli::{Cli, Commands};
 pub use domain::entities::File;
 pub use domain::queries::{BasicQuery, CompositeQuery, FileQuery};
 pub use domain::repositories::FileRepository;
