@@ -9,7 +9,7 @@ pub mod domain;
 pub mod infrastructure;
 
 // Re-exports for convenience
-pub use application::{DisplayService, SearchParams, SearchService};
+pub use application::{DisplayService, ExtractResult, ExtractService, SearchParams, SearchService};
 pub use cli::{Cli, Commands};
 pub use domain::entities::File;
 pub use domain::queries::{BasicQuery, CompositeQuery, FileQuery};
