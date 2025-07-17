@@ -44,4 +44,30 @@ pub enum Commands {
         #[arg(long)]
         or: bool,
     },
+    /// Extract files based on search criteria
+    Extract {
+        /// Output directory for extracted files
+        #[arg(short, long, value_hint = ValueHint::DirPath)]
+        output: String,
+
+        /// Exact domain match
+        #[arg(long)]
+        domain_exact: Option<String>,
+
+        /// Partial domain match
+        #[arg(long)]
+        domain_contains: Option<String>,
+
+        /// Exact path match
+        #[arg(long)]
+        path_exact: Option<String>,
+
+        /// Partial path match
+        #[arg(long)]
+        path_contains: Option<String>,
+
+        /// Use OR logic instead of AND (default is AND)
+        #[arg(long)]
+        or: bool,
+    },
 }

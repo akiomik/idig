@@ -3,8 +3,8 @@
 use anyhow::Result;
 use clap::Parser as _;
 use idig::{
-    Cli, Commands, DatabaseConnection, DisplayService, FileRepositoryImpl, SearchParams,
-    SearchService,
+    Cli, Commands, DatabaseConnection, DisplayService, ExtractService, FileRepositoryImpl,
+    SearchParams, SearchService,
 };
 use std::{path::Path, process::exit};
 
@@ -25,6 +25,7 @@ async fn main() -> Result<()> {
     let db = DatabaseConnection::new(&db_url).await?;
     let file_repo = FileRepositoryImpl::new(db);
     let search_service = SearchService::new();
+    let extract_service = ExtractService::new();
     let display_service = DisplayService::new();
 
     match cli.command {
@@ -41,6 +42,42 @@ async fn main() -> Result<()> {
             match search_service.search(&file_repo, params).await {
                 Ok(results) => {
                     display_service.display_search_results(results);
+                }
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    exit(1);
+                }
+            }
+        }
+        Commands::Extract {
+            output,
+            domain_exact,
+            domain_contains,
+            path_exact,
+            path_contains,
+            or,
+        } => {
+            let params =
+                SearchParams::new(domain_exact, domain_contains, path_exact, path_contains, or);
+
+            match extract_service
+                .extract(&file_repo, &cli.backup_dir, &output, params)
+                .await
+            {
+                Ok(result) => {
+                    println!("Extraction completed:");
+                    println!("  Extracted: {} files", result.extracted_count);
+                    println!("  Skipped: {} files", result.skipped_count);
+
+                    if !result.errors.is_empty() {
+                        println!("  Errors: {} files", result.errors.len());
+                        for error in &result.errors {
+                            eprintln!(
+                                "    Error extracting {}: {}",
+                                error.relative_path, error.error
+                            );
+                        }
+                    }
                 }
                 Err(e) => {
                     eprintln!("Error: {e}");
