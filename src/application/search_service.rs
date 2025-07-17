@@ -1,6 +1,6 @@
 //! Search service for handling file search operations
 
-use crate::{BasicQuery, File, FileQuery, FileRepository};
+use crate::{File, FileQuery, FileRepository};
 use anyhow::Result;
 
 /// Service for handling file search operations
@@ -37,6 +37,61 @@ impl SearchParams {
             use_or,
         }
     }
+
+    /// Build a `FileQuery` from search parameters
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no search conditions are provided
+    #[inline]
+    pub fn build_query(self) -> Result<FileQuery, anyhow::Error> {
+        use crate::domain::queries::{BasicQuery, FileQuery};
+
+        let mut conditions = Vec::new();
+
+        if let Some(domain) = self.domain_exact {
+            conditions.push(BasicQuery::DomainExact(domain));
+        }
+
+        if let Some(domain) = self.domain_contains {
+            conditions.push(BasicQuery::DomainContains(domain));
+        }
+
+        if let Some(path) = self.path_exact {
+            conditions.push(BasicQuery::PathExact(path));
+        }
+
+        if let Some(path) = self.path_contains {
+            conditions.push(BasicQuery::PathContains(path));
+        }
+
+        if conditions.is_empty() {
+            return Err(anyhow::anyhow!(
+                "At least one search condition must be specified"
+            ));
+        }
+
+        // Build query based on logic type
+        let query = if conditions.len() == 1 {
+            // Single condition - use Basic query
+            // We know conditions has exactly one element at this point
+            if let Some(condition) = conditions.into_iter().next() {
+                FileQuery::Basic(condition)
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Internal error: expected exactly one condition"
+                ));
+            }
+        } else if self.use_or {
+            // Multiple conditions with OR logic
+            FileQuery::any_of(conditions)
+        } else {
+            // Multiple conditions with AND logic (default)
+            FileQuery::all_of(conditions)
+        };
+
+        Ok(query)
+    }
 }
 
 impl SearchService {
@@ -64,60 +119,8 @@ impl SearchService {
         file_repo: &R,
         params: SearchParams,
     ) -> Result<Vec<File>> {
-        let query = Self::build_query(params)?;
+        let query = params.build_query()?;
         file_repo.search(query).await
-    }
-
-    /// Build a `FileQuery` from search parameters
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if no search conditions are provided
-    fn build_query(params: SearchParams) -> Result<FileQuery> {
-        let mut conditions = Vec::new();
-
-        if let Some(domain) = params.domain_exact {
-            conditions.push(BasicQuery::DomainExact(domain));
-        }
-
-        if let Some(domain) = params.domain_contains {
-            conditions.push(BasicQuery::DomainContains(domain));
-        }
-
-        if let Some(path) = params.path_exact {
-            conditions.push(BasicQuery::PathExact(path));
-        }
-
-        if let Some(path) = params.path_contains {
-            conditions.push(BasicQuery::PathContains(path));
-        }
-
-        if conditions.is_empty() {
-            return Err(anyhow::anyhow!(
-                "At least one search condition must be specified"
-            ));
-        }
-
-        // Build query based on logic type
-        let query = if conditions.len() == 1 {
-            // Single condition - use Basic query
-            // We know conditions has exactly one element at this point
-            if let Some(condition) = conditions.into_iter().next() {
-                FileQuery::Basic(condition)
-            } else {
-                return Err(anyhow::anyhow!(
-                    "Internal error: expected exactly one condition"
-                ));
-            }
-        } else if params.use_or {
-            // Multiple conditions with OR logic
-            FileQuery::any_of(conditions)
-        } else {
-            // Multiple conditions with AND logic (default)
-            FileQuery::all_of(conditions)
-        };
-
-        Ok(query)
     }
 }
 
@@ -131,12 +134,13 @@ impl Default for SearchService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{BasicQuery, FileQuery};
 
     #[test]
     fn test_build_query_single_condition() {
         let params = SearchParams::new(Some("com.apple.test".to_string()), None, None, None, false);
 
-        let result = SearchService::build_query(params);
+        let result = params.build_query();
         assert!(result.is_ok());
 
         if let Ok(FileQuery::Basic(BasicQuery::DomainExact(domain))) = result {
@@ -156,7 +160,7 @@ mod tests {
             false,
         );
 
-        let result = SearchService::build_query(params);
+        let result = params.build_query();
         assert!(result.is_ok());
 
         if let Ok(FileQuery::Composite(_)) = result {
@@ -170,7 +174,7 @@ mod tests {
     fn test_build_query_no_conditions() {
         let params = SearchParams::new(None, None, None, None, false);
 
-        let result = SearchService::build_query(params);
+        let result = params.build_query();
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -188,7 +192,7 @@ mod tests {
             true,
         );
 
-        let result = SearchService::build_query(params);
+        let result = params.build_query();
         assert!(result.is_ok());
 
         if let Ok(FileQuery::Composite(_)) = result {

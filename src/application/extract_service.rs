@@ -1,7 +1,6 @@
 //! Extract service for copying files from iPhone backups
 
 use crate::domain::entities::File;
-use crate::domain::queries::{BasicQuery, FileQuery};
 use crate::domain::repositories::FileRepository;
 use crate::SearchParams;
 use anyhow::{Context as _, Result};
@@ -41,7 +40,7 @@ impl ExtractService {
         params: SearchParams,
     ) -> Result<ExtractResult> {
         // Search for files matching the criteria
-        let query = Self::build_query(params)?;
+        let query = params.build_query()?;
         let files = repository
             .search(query)
             .await
@@ -119,58 +118,6 @@ impl ExtractService {
         })?;
 
         Ok(true)
-    }
-
-    /// Build a `FileQuery` from search parameters
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if no search conditions are provided
-    fn build_query(params: SearchParams) -> Result<FileQuery> {
-        let mut conditions = Vec::new();
-
-        if let Some(domain) = params.domain_exact {
-            conditions.push(BasicQuery::DomainExact(domain));
-        }
-
-        if let Some(domain) = params.domain_contains {
-            conditions.push(BasicQuery::DomainContains(domain));
-        }
-
-        if let Some(path) = params.path_exact {
-            conditions.push(BasicQuery::PathExact(path));
-        }
-
-        if let Some(path) = params.path_contains {
-            conditions.push(BasicQuery::PathContains(path));
-        }
-
-        if conditions.is_empty() {
-            return Err(anyhow::anyhow!(
-                "At least one search condition must be specified"
-            ));
-        }
-
-        // Build query based on logic type
-        let query = if conditions.len() == 1 {
-            // Single condition - use Basic query
-            // We know conditions has exactly one element at this point
-            if let Some(condition) = conditions.into_iter().next() {
-                FileQuery::Basic(condition)
-            } else {
-                return Err(anyhow::anyhow!(
-                    "Internal error: expected exactly one condition"
-                ));
-            }
-        } else if params.use_or {
-            // Multiple conditions with OR logic
-            FileQuery::any_of(conditions)
-        } else {
-            // Multiple conditions with AND logic (default)
-            FileQuery::all_of(conditions)
-        };
-
-        Ok(query)
     }
 }
 
