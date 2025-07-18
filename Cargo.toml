@@ -18,6 +18,7 @@ clap = { version = "4.5.41", features = ["derive"] }
 shellexpand = "3.1"
 tabled = "0.15"
 bitflags = "2.4"
+plist = "1.7.4"
 
 [dev-dependencies]
 sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros", "mock"] }
