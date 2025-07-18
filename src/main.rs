@@ -12,33 +12,34 @@ use std::path::PathBuf;
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Database connection initialization
-    // Expand home directory (~) in backup_dir path
-    let backup_dir_str = cli.backup_dir.to_string_lossy();
-    let expanded_backup_dir = shellexpand::tilde(&backup_dir_str);
-    let backup_path = PathBuf::from(expanded_backup_dir.as_ref());
-    let manifest_path = backup_path.join("Manifest.db");
-    if !manifest_path.exists() {
-        return Err(anyhow::anyhow!(
-            "Manifest.db not found in backup directory: {}",
-            backup_path.display()
-        ));
-    }
-    let db_url = format!("sqlite://{}", manifest_path.display());
-    let db = DatabaseConnection::new(&db_url).await?;
-    let file_repo = FileRepositoryImpl::new(db);
-    let search_service = SearchService::new();
-    let extract_service = ExtractService::new();
     let display_service = DisplayService::new();
 
     match cli.command {
         Commands::Search {
+            backup_dir,
             domain_exact,
             domain_contains,
             path_exact,
             path_contains,
             or,
         } => {
+            // Database connection initialization
+            let backup_dir_str = backup_dir.to_string_lossy();
+            let expanded_backup_dir = shellexpand::tilde(&backup_dir_str);
+            let backup_path = PathBuf::from(expanded_backup_dir.as_ref());
+            let manifest_path = backup_path.join("Manifest.db");
+            if !manifest_path.exists() {
+                return Err(anyhow::anyhow!(
+                    "Manifest.db not found in backup directory: {}",
+                    backup_path.display()
+                ));
+            }
+
+            let db_url = format!("sqlite://{}", manifest_path.display());
+            let db = DatabaseConnection::new(&db_url).await?;
+            let file_repo = FileRepositoryImpl::new(db);
+            let search_service = SearchService::new();
+
             let params =
                 SearchParams::new(domain_exact, domain_contains, path_exact, path_contains, or);
 
@@ -46,6 +47,7 @@ async fn main() -> Result<()> {
             display_service.display_search_results(results);
         }
         Commands::Extract {
+            backup_dir,
             output,
             domain_exact,
             domain_contains,
@@ -53,6 +55,23 @@ async fn main() -> Result<()> {
             path_contains,
             or,
         } => {
+            // Database connection initialization
+            let backup_dir_str = backup_dir.to_string_lossy();
+            let expanded_backup_dir = shellexpand::tilde(&backup_dir_str);
+            let backup_path = PathBuf::from(expanded_backup_dir.as_ref());
+            let manifest_path = backup_path.join("Manifest.db");
+            if !manifest_path.exists() {
+                return Err(anyhow::anyhow!(
+                    "Manifest.db not found in backup directory: {}",
+                    backup_path.display()
+                ));
+            }
+
+            let db_url = format!("sqlite://{}", manifest_path.display());
+            let db = DatabaseConnection::new(&db_url).await?;
+            let file_repo = FileRepositoryImpl::new(db);
+            let extract_service = ExtractService::new();
+
             let params =
                 SearchParams::new(domain_exact, domain_contains, path_exact, path_contains, or);
 
