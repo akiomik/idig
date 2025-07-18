@@ -1,6 +1,6 @@
 use crate::domain::value_objects::{Domain, FileFlags, FileId, RelativePath};
 
-/// File Entity - Represents a file in the domain model
+/// File Entity - Represents a file in a backup
 ///
 /// This entity encapsulates all the information about a file including its unique identifier,
 /// domain context, path information, flags, and metadata.
