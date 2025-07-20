@@ -11,14 +11,15 @@ categories = ["command-line-utilities"]
 readme = "README.md"
 
 [dependencies]
-sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
-tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
+bitflags = "2.4"
+chrono = "0.4.41"
 clap = { version = "4.5.41", features = ["derive"] }
+plist = "1.7.4"
+sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
 shellexpand = "3.1"
 tabled = "0.15"
-bitflags = "2.4"
-plist = "1.7.4"
+tokio = { version = "1.0", features = ["full"] }
 
 [dev-dependencies]
 sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros", "mock"] }
