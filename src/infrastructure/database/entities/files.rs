@@ -5,6 +5,9 @@
     reason = "SeaORM macros generate exhaustive types that we cannot control"
 )]
 
+use crate::domain::entities::File;
+use crate::domain::value_objects::{Domain, FileFlags, FileId, RelativePath};
+use anyhow::Result;
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
@@ -23,3 +26,28 @@ pub struct Model {
 pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
+
+impl Model {
+    /// Converts the database model to domain `File`
+    ///
+    /// # Errors
+    /// Returns an error if any of the value objects cannot be constructed from the raw data
+    #[inline]
+    pub fn to_domain(self) -> Result<File> {
+        let file_id =
+            FileId::new(&self.file_id).map_err(|e| anyhow::anyhow!("Invalid FileId: {}", e))?;
+        let domain =
+            Domain::new(self.domain).map_err(|e| anyhow::anyhow!("Invalid Domain: {}", e))?;
+        let relative_path = RelativePath::new(self.relative_path)
+            .map_err(|e| anyhow::anyhow!("Invalid RelativePath: {}", e))?;
+        let flags = FileFlags::from_bits_truncate(self.flags);
+
+        Ok(File::reconstruct(
+            file_id,
+            domain,
+            relative_path,
+            flags,
+            self.file,
+        ))
+    }
+}

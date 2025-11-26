@@ -4,10 +4,9 @@ use sea_orm::{ColumnTrait as _, EntityTrait as _, QueryFilter as _, QueryOrder a
 use crate::domain::entities::File;
 use crate::domain::queries::{BasicQuery, CompositeQuery, FileQuery};
 use crate::domain::repositories::FileRepository;
-use crate::domain::value_objects::{Domain, FileFlags, FileId, RelativePath};
 use crate::infrastructure::database::{
     DatabaseConnection,
-    entities::files::{Column, Entity, Model},
+    entities::files::{Column, Entity},
 };
 
 /// Implementation of `FileRepository` using `SeaORM`
@@ -22,24 +21,6 @@ impl FileRepositoryImpl {
     #[inline]
     pub const fn new(db: DatabaseConnection) -> Self {
         Self { db }
-    }
-
-    fn model_to_domain(model: Model) -> Result<File> {
-        let file_id =
-            FileId::new(&model.file_id).map_err(|e| anyhow::anyhow!("Invalid FileId: {}", e))?;
-        let domain =
-            Domain::new(model.domain).map_err(|e| anyhow::anyhow!("Invalid Domain: {}", e))?;
-        let relative_path = RelativePath::new(model.relative_path)
-            .map_err(|e| anyhow::anyhow!("Invalid RelativePath: {}", e))?;
-        let flags = FileFlags::from_bits_truncate(model.flags);
-
-        Ok(File::reconstruct(
-            file_id,
-            domain,
-            relative_path,
-            flags,
-            model.file,
-        ))
     }
 
     fn apply_basic_query(
@@ -129,7 +110,7 @@ impl FileRepository for FileRepositoryImpl {
         let mut files = Vec::with_capacity(models.len());
 
         for model in models {
-            files.push(Self::model_to_domain(model)?);
+            files.push(model.to_domain()?);
         }
 
         Ok(files)
