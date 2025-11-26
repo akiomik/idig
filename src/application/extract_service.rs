@@ -158,29 +158,354 @@ mod tests {
     use crate::domain::entities::File;
     use crate::domain::queries::FileQuery;
     use crate::domain::repositories::FileRepository;
+    use crate::domain::value_objects::{Domain, FileFlags, FileId, RelativePath};
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+    use std::fs;
+    use tempfile::TempDir;
+
+    // Helper function to safely convert TempDir path to string
+    fn temp_dir_to_str(temp_dir: &TempDir) -> Result<&str> {
+        temp_dir
+            .path()
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Failed to convert temp directory path to string"))
+    }
 
     // Mock repository for testing
     struct MockFileRepository {
         files: Vec<File>,
+        should_fail: bool,
+    }
+
+    impl MockFileRepository {
+        const fn new(files: Vec<File>) -> Self {
+            Self {
+                files,
+                should_fail: false,
+            }
+        }
+
+        const fn new_failing() -> Self {
+            Self {
+                files: vec![],
+                should_fail: true,
+            }
+        }
     }
 
     impl FileRepository for MockFileRepository {
         async fn search(&self, _query: FileQuery) -> Result<Vec<File>> {
+            if self.should_fail {
+                return Err(anyhow::anyhow!("Mock repository failure"));
+            }
             Ok(self.files.clone())
         }
+    }
+
+    fn create_test_file() -> Result<File> {
+        let file_id = FileId::new("da39a3ee5e6b4b0d3255bfef95601890afd80709")?;
+        let domain = Domain::new("AppDomain-com.apple.test".to_owned())?;
+        let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
+        let flags = FileFlags::REGULAR_FILE;
+        let metadata = b"test metadata".to_vec();
+
+        Ok(File::new(file_id, domain, relative_path, flags, metadata))
+    }
+
+    fn create_test_file_with_params(
+        file_id_str: &str,
+        domain_str: &str,
+        relative_path_str: &str,
+    ) -> Result<File> {
+        let file_id = FileId::new(file_id_str)?;
+        let domain = Domain::new(domain_str.to_owned())?;
+        let relative_path = RelativePath::new(relative_path_str.to_owned())?;
+        let flags = FileFlags::REGULAR_FILE;
+        let metadata = b"test metadata".to_vec();
+
+        Ok(File::new(file_id, domain, relative_path, flags, metadata))
+    }
+
+    #[tokio::test]
+    async fn test_extract_service_new() {
+        let service = ExtractService::new();
+        let service2 = ExtractService::default();
+
+        // Both should be unit structs and create successfully
+        // We can't directly compare unit structs, but we can test that they behave the same
+        assert!(matches!(service, ExtractService));
+        assert!(matches!(service2, ExtractService));
     }
 
     #[tokio::test]
     async fn test_extract_service_no_files() -> Result<()> {
         let service = ExtractService::new();
-        let repo = MockFileRepository { files: vec![] };
+        let repo = MockFileRepository::new(vec![]);
         let params = SearchParams::new(Some("test.domain".to_owned()), None, None, None, false);
 
-        let result = service.extract(&repo, "/backup", "/output", params).await?;
+        let temp_backup = TempDir::new()?;
+        let temp_output = TempDir::new()?;
+
+        let result = service
+            .extract(
+                &repo,
+                temp_dir_to_str(&temp_backup)?,
+                temp_dir_to_str(&temp_output)?,
+                params,
+            )
+            .await?;
 
         assert_eq!(result.extracted_count, 0);
         assert_eq!(result.skipped_count, 0);
         assert!(result.errors.is_empty());
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_extract_service_repository_error() -> Result<()> {
+        let service = ExtractService::new();
+        let repo = MockFileRepository::new_failing();
+        let params = SearchParams::new(Some("test.domain".to_owned()), None, None, None, false);
+
+        let temp_backup = TempDir::new()?;
+        let temp_output = TempDir::new()?;
+
+        let result = service
+            .extract(
+                &repo,
+                temp_dir_to_str(&temp_backup)?,
+                temp_dir_to_str(&temp_output)?,
+                params,
+            )
+            .await;
+
+        assert!(result.is_err());
+        if let Err(error) = result {
+            let error_message = error.to_string();
+            assert!(error_message.contains("Failed to search for files"));
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_extract_service_file_not_found_skipped() -> Result<()> {
+        let service = ExtractService::new();
+        let test_file = create_test_file()?;
+        let repo = MockFileRepository::new(vec![test_file]);
+        let params = SearchParams::new(Some("test.domain".to_owned()), None, None, None, false);
+
+        let temp_backup = TempDir::new()?;
+        let temp_output = TempDir::new()?;
+
+        // Don't create the source file - it should be skipped
+
+        let result = service
+            .extract(
+                &repo,
+                temp_dir_to_str(&temp_backup)?,
+                temp_dir_to_str(&temp_output)?,
+                params,
+            )
+            .await?;
+
+        assert_eq!(result.extracted_count, 0);
+        assert_eq!(result.skipped_count, 1);
+        assert!(result.errors.is_empty());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_extract_service_successful_extraction() -> Result<()> {
+        let service = ExtractService::new();
+        let test_file = create_test_file()?;
+        let repo = MockFileRepository::new(vec![test_file.clone()]);
+        let params = SearchParams::new(Some("test.domain".to_owned()), None, None, None, false);
+
+        let temp_backup = TempDir::new()?;
+        let temp_output = TempDir::new()?;
+
+        // Create the source file in backup directory structure
+        let file_id_str = test_file.file_id().to_string();
+        let prefix = &file_id_str[0..2];
+        let source_dir = temp_backup.path().join(prefix);
+        fs::create_dir_all(&source_dir)?;
+        let source_file_path = source_dir.join(&file_id_str);
+        fs::write(&source_file_path, b"test file content")?;
+
+        let result = service
+            .extract(
+                &repo,
+                temp_dir_to_str(&temp_backup)?,
+                temp_dir_to_str(&temp_output)?,
+                params,
+            )
+            .await?;
+
+        assert_eq!(result.extracted_count, 1);
+        assert_eq!(result.skipped_count, 0);
+        assert!(result.errors.is_empty());
+
+        // Verify the file was copied to the correct destination
+        let dest_file_path = temp_output.path().join("Documents/test.txt");
+        assert!(dest_file_path.exists());
+        let content = fs::read_to_string(&dest_file_path)?;
+        assert_eq!(content, "test file content");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_extract_service_multiple_files_mixed_results() -> Result<()> {
+        let service = ExtractService::new();
+
+        // Create multiple test files
+        let file1 = create_test_file_with_params(
+            "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+            "AppDomain-com.apple.test1",
+            "Documents/file1.txt",
+        )?;
+        let file2 = create_test_file_with_params(
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4",
+            "AppDomain-com.apple.test2",
+            "Photos/image.jpg",
+        )?;
+        let file3 = create_test_file_with_params(
+            "356a192b7913b04c54574d18c28d46e6395428ab",
+            "AppDomain-com.apple.test3",
+            "Music/song.mp3",
+        )?;
+
+        let repo = MockFileRepository::new(vec![file1.clone(), file2.clone(), file3.clone()]);
+        let params = SearchParams::new(Some("test.domain".to_owned()), None, None, None, false);
+
+        let temp_backup = TempDir::new()?;
+        let temp_output = TempDir::new()?;
+
+        // Create source files for file1 and file3 only (file2 will be skipped)
+        for file in [&file1, &file3] {
+            let file_id_str = file.file_id().to_string();
+            let prefix = &file_id_str[0..2];
+            let source_dir = temp_backup.path().join(prefix);
+            fs::create_dir_all(&source_dir)?;
+            let source_file_path = source_dir.join(&file_id_str);
+            fs::write(&source_file_path, format!("content for {file_id_str}"))?;
+        }
+
+        let result = service
+            .extract(
+                &repo,
+                temp_dir_to_str(&temp_backup)?,
+                temp_dir_to_str(&temp_output)?,
+                params,
+            )
+            .await?;
+
+        assert_eq!(result.extracted_count, 2);
+        assert_eq!(result.skipped_count, 1);
+        assert!(result.errors.is_empty());
+
+        // Verify the extracted files exist
+        assert!(temp_output.path().join("Documents/file1.txt").exists());
+        assert!(temp_output.path().join("Music/song.mp3").exists());
+        assert!(!temp_output.path().join("Photos/image.jpg").exists());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_extract_service_nested_directory_structure() -> Result<()> {
+        let service = ExtractService::new();
+        let test_file = create_test_file_with_params(
+            "da627651e4e11a916ba8a9cd3f235e9a25a3b58e",
+            "AppDomain-com.apple.test",
+            "Documents/Projects/MyApp/src/main.rs",
+        )?;
+        let repo = MockFileRepository::new(vec![test_file.clone()]);
+        let params = SearchParams::new(Some("test.domain".to_owned()), None, None, None, false);
+
+        let temp_backup = TempDir::new()?;
+        let temp_output = TempDir::new()?;
+
+        // Create the source file
+        let file_id_str = test_file.file_id().to_string();
+        let prefix = &file_id_str[0..2];
+        let source_dir = temp_backup.path().join(prefix);
+        fs::create_dir_all(&source_dir)?;
+        let source_file_path = source_dir.join(&file_id_str);
+        fs::write(&source_file_path, b"fn main() { println!(\"Hello!\"); }")?;
+
+        let result = service
+            .extract(
+                &repo,
+                temp_dir_to_str(&temp_backup)?,
+                temp_dir_to_str(&temp_output)?,
+                params,
+            )
+            .await?;
+
+        assert_eq!(result.extracted_count, 1);
+        assert_eq!(result.skipped_count, 0);
+        assert!(result.errors.is_empty());
+
+        // Verify nested directory structure is created correctly
+        let dest_file_path = temp_output
+            .path()
+            .join("Documents/Projects/MyApp/src/main.rs");
+        assert!(dest_file_path.exists());
+        let content = fs::read_to_string(&dest_file_path)?;
+        assert_eq!(content, "fn main() { println!(\"Hello!\"); }");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_result_equality() {
+        let result1 = ExtractResult {
+            extracted_count: 1,
+            skipped_count: 2,
+            errors: vec![ExtractError {
+                file_id: "test123".to_owned(),
+                relative_path: "test/path.txt".to_owned(),
+                error: "Test error".to_owned(),
+            }],
+        };
+
+        let result2 = ExtractResult {
+            extracted_count: 1,
+            skipped_count: 2,
+            errors: vec![ExtractError {
+                file_id: "test123".to_owned(),
+                relative_path: "test/path.txt".to_owned(),
+                error: "Test error".to_owned(),
+            }],
+        };
+
+        assert_eq!(result1, result2);
+
+        // Test Clone
+        let cloned = result1;
+        assert_eq!(cloned, result2);
+    }
+
+    #[test]
+    fn test_extract_error_equality() {
+        let error1 = ExtractError {
+            file_id: "abc123".to_owned(),
+            relative_path: "Documents/test.txt".to_owned(),
+            error: "Permission denied".to_owned(),
+        };
+
+        let error2 = ExtractError {
+            file_id: "abc123".to_owned(),
+            relative_path: "Documents/test.txt".to_owned(),
+            error: "Permission denied".to_owned(),
+        };
+
+        assert_eq!(error1, error2);
+
+        // Test Clone
+        let cloned = error1;
+        assert_eq!(cloned, error2);
     }
 }
