@@ -15,7 +15,7 @@ pub use application::{
 pub use cli::{Cli, Commands};
 pub use domain::entities::{File, Metadata};
 pub use domain::queries::{BasicQuery, CompositeQuery, FileQuery};
-pub use domain::repositories::FileRepository;
+pub use domain::repositories::{FileRepository, MetadataRepository};
 pub use domain::value_objects::{Domain, FileFlags, FileId, RelativePath};
 pub use infrastructure::database::DatabaseConnection;
 pub use infrastructure::repositories::FileRepositoryImpl;
