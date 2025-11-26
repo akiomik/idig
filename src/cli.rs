@@ -9,10 +9,6 @@ use std::path::PathBuf;
 #[command(version)]
 #[non_exhaustive]
 pub struct Cli {
-    /// iPhone backup directory path (containing Manifest.db)
-    #[arg(short = 'b', long, value_hint = ValueHint::DirPath)]
-    pub backup_dir: PathBuf,
-
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -25,6 +21,10 @@ pub struct Cli {
 pub enum Commands {
     /// Search for files based on various criteria
     Search {
+        /// iPhone backup directory path (containing Manifest.db)
+        #[arg(short = 'b', long, value_hint = ValueHint::DirPath)]
+        backup_dir: PathBuf,
+
         /// Exact domain match
         #[arg(long)]
         domain_exact: Option<String>,
@@ -47,6 +47,10 @@ pub enum Commands {
     },
     /// Extract files based on search criteria
     Extract {
+        /// iPhone backup directory path (containing Manifest.db)
+        #[arg(short = 'b', long, value_hint = ValueHint::DirPath)]
+        backup_dir: PathBuf,
+
         /// Output directory for extracted files
         #[arg(short, long, value_hint = ValueHint::DirPath)]
         output: String,
