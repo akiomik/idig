@@ -24,6 +24,7 @@ tabled = "0.15"
 tokio = { version = "1.0", features = ["full"] }
 
 [dev-dependencies]
+pretty_assertions = "1.4.1"
 sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros", "mock"] }
 
 [lints.clippy]
