@@ -1,6 +1,7 @@
 //! Display service for formatting and presenting search results
 
-use crate::{ExtractResult, File};
+// BackupEntry is no longer used since ListService only returns Metadata
+use crate::{ExtractResult, File, Metadata};
 use tabled::{Table, Tabled, settings::Style};
 
 /// Represents a file for table display
@@ -21,6 +22,19 @@ struct ExtractionStatsRow {
     status: String,
     #[tabled(rename = "Count")]
     count: usize,
+}
+
+/// Represents a metadata row for table display
+#[derive(Tabled)]
+struct MetadataTableRow {
+    #[tabled(rename = "ID")]
+    id: String,
+    #[tabled(rename = "Device")]
+    device_name: String,
+    #[tabled(rename = "Product")]
+    product_name: String,
+    #[tabled(rename = "Last Backup")]
+    last_backup_date: String,
 }
 
 /// Represents extraction errors for table display
@@ -107,6 +121,41 @@ impl DisplayService {
             error_table.with(Style::rounded());
             println!("{error_table}");
         }
+    }
+
+    /// Display backup list in a formatted table
+    /// Note: This method is deprecated since `BackupEntry` is no longer used
+    ///
+    /// # Arguments
+    /// * `backups` - List of metadata to display
+    #[inline]
+    pub fn display_backup_list(&self, backups: &[crate::Metadata]) {
+        // Simply delegate to display_metadata_list since they do the same thing now
+        self.display_metadata_list(backups);
+    }
+
+    /// Displays a list of metadata in a formatted table (without directory paths)
+    #[inline]
+    pub fn display_metadata_list(&self, metadata_list: &[Metadata]) {
+        if metadata_list.is_empty() {
+            println!("No backups found.");
+            return;
+        }
+
+        let rows: Vec<MetadataTableRow> = metadata_list
+            .iter()
+            .map(|metadata| MetadataTableRow {
+                id: metadata.id().to_string(),
+                device_name: metadata.device_name().to_owned(),
+                product_name: metadata.product_name().to_owned(),
+                last_backup_date: metadata.last_backup_date().to_string(),
+            })
+            .collect();
+
+        let table = Table::new(rows).with(Style::rounded()).to_string();
+
+        println!("{table}");
+        println!("\nFound {} backup(s)", metadata_list.len());
     }
 
     /// Format search results as a string (useful for testing)

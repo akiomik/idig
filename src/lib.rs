@@ -10,7 +10,8 @@ pub mod infrastructure;
 
 // Re-exports for convenience
 pub use application::{
-    DisplayService, ExtractError, ExtractResult, ExtractService, SearchParams, SearchService,
+    DisplayService, ExtractError, ExtractResult, ExtractService, ListService, SearchParams,
+    SearchService,
 };
 pub use cli::{Cli, Commands};
 pub use domain::entities::{File, Metadata};

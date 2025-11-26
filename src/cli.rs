@@ -19,6 +19,14 @@ pub struct Cli {
     reason = "Commands enum is intentionally exhaustive for CLI definition"
 )]
 pub enum Commands {
+    /// List all available backups
+    #[clap(visible_alias = "ls")]
+    List {
+        /// Root directory containing multiple backup folders
+        #[arg(long, value_hint = ValueHint::DirPath, default_value="~/Library/Application Support/MobileSync/Backup")]
+        backups_root: PathBuf,
+    },
+
     /// Search for files based on various criteria
     Search {
         /// iPhone backup directory path (containing Manifest.db)

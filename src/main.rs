@@ -4,9 +4,10 @@ use anyhow::Result;
 use clap::Parser as _;
 use idig::{
     Cli, Commands, DatabaseConnection, DisplayService, ExtractService, FileRepositoryImpl,
-    SearchParams, SearchService,
+    ListService, MetadataRepositoryImpl, SearchParams, SearchService,
 };
 use std::path::PathBuf;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -15,6 +16,22 @@ async fn main() -> Result<()> {
     let display_service = DisplayService::new();
 
     match cli.command {
+        Commands::List { backups_root } => {
+            // Create backup metadata repository and list service
+            let backups_root_str = backups_root.to_string_lossy();
+            let expanded_backups_root = shellexpand::tilde(&backups_root_str);
+            let backups_path = PathBuf::from(expanded_backups_root.as_ref());
+            let backup_repo = Arc::new(MetadataRepositoryImpl::new(backups_path));
+            let backup_list_service = ListService::new(backup_repo);
+
+            // List all backups
+            let metadata_list = backup_list_service
+                .list_backups()
+                .await
+                .map_err(|e| anyhow::anyhow!("Error listing backups: {e}"))?;
+
+            display_service.display_metadata_list(&metadata_list);
+        }
         Commands::Search {
             backup_dir,
             domain_exact,
