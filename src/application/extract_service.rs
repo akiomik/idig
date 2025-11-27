@@ -79,7 +79,7 @@ impl ExtractService {
                     result.skipped_count = result.skipped_count.saturating_add(1);
                 }
                 Err(e) => result.errors.push(ExtractError {
-                    file_id: file.file_id().to_string(),
+                    file_id: file.id().to_string(),
                     relative_path: file.relative_path().to_string(),
                     error: e.to_string(),
                 }),
@@ -93,7 +93,7 @@ impl ExtractService {
     ///
     /// Returns Ok(true) if extracted, Ok(false) if skipped, Err if failed
     fn extract_single_file(file: &File, backup_dir: &Path, output_dir: &Path) -> Result<bool> {
-        let file_id_str = file.file_id().to_string();
+        let file_id_str = file.id().to_string();
 
         // Construct source path: backup_dir/XX/fileID (where XX is first 2 chars of fileID)
         let prefix = &file_id_str[0..2];
@@ -310,7 +310,7 @@ mod tests {
         let temp_output = TempDir::new()?;
 
         // Create the source file in backup directory structure
-        let file_id_str = test_file.file_id().to_string();
+        let file_id_str = test_file.id().to_string();
         let prefix = &file_id_str[0..2];
         temp_backup
             .child(prefix)
@@ -363,7 +363,7 @@ mod tests {
 
         // Create source files for file1 and file3 only (file2 will be skipped)
         for file in [&file1, &file3] {
-            let file_id_str = file.file_id().to_string();
+            let file_id_str = file.id().to_string();
             let prefix = &file_id_str[0..2];
             temp_backup
                 .child(prefix)
@@ -411,7 +411,7 @@ mod tests {
         let temp_output = TempDir::new()?;
 
         // Create the source file
-        let file_id_str = test_file.file_id().to_string();
+        let file_id_str = test_file.id().to_string();
         let prefix = &file_id_str[0..2];
         temp_backup
             .child(prefix)

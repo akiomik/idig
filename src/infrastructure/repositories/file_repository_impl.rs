@@ -252,7 +252,7 @@ mod tests {
 
         assert_eq!(results.len(), 2);
         // Should find news file (by domain) and photo file (by path)
-        let file_ids: Vec<&str> = results.iter().map(|f| f.file_id().value()).collect();
+        let file_ids: Vec<&str> = results.iter().map(|f| f.id().value()).collect();
         assert!(file_ids.contains(&"356a192b7913b04c54574d18c28d46e6395428ab"));
         assert!(file_ids.contains(&"da4b9237bacccdf19c0760cab7aec4a8359010b0"));
 

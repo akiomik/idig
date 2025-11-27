@@ -68,7 +68,7 @@ impl DisplayService {
             let table_rows: Vec<FileTableRow> = results
                 .into_iter()
                 .map(|file| FileTableRow {
-                    id: file.file_id().value().to_owned(),
+                    id: file.id().value().to_owned(),
                     domain: file.domain().value().to_owned(),
                     path: file.relative_path().value().to_owned(),
                 })
@@ -169,7 +169,7 @@ impl DisplayService {
             let table_rows: Vec<FileTableRow> = results
                 .into_iter()
                 .map(|file| FileTableRow {
-                    id: file.file_id().value().to_owned(),
+                    id: file.id().value().to_owned(),
                     domain: file.domain().value().to_owned(),
                     path: file.relative_path().value().to_owned(),
                 })
