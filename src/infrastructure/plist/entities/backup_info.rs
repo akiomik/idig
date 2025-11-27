@@ -30,7 +30,7 @@ impl BackupInfo {
     #[inline]
     pub fn to_domain(self) -> Result<Metadata> {
         let metadata_id = MetadataId::new(&self.unique_identifier)
-            .map_err(|e| anyhow::anyhow!("Invalid FileId: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid FileId: {e}"))?;
         let last_backup_date = self.last_backup_date.parse()?;
 
         Ok(Metadata::new(
@@ -132,7 +132,7 @@ mod tests {
 
             let metadata = backup_info
                 .to_domain()
-                .map_err(|e| anyhow::anyhow!("Failed to parse {}: {}", description, e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to parse {description}: {e}"))?;
 
             // Just verify that conversion succeeds and basic fields are preserved
             assert_eq!(metadata.device_name(), "Test Device");

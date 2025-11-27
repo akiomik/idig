@@ -35,11 +35,11 @@ impl Model {
     #[inline]
     pub fn to_domain(self) -> Result<File> {
         let file_id =
-            FileId::new(&self.file_id).map_err(|e| anyhow::anyhow!("Invalid FileId: {}", e))?;
+            FileId::new(&self.file_id).map_err(|e| anyhow::anyhow!("Invalid FileId: {e}"))?;
         let domain =
-            Domain::new(self.domain).map_err(|e| anyhow::anyhow!("Invalid Domain: {}", e))?;
+            Domain::new(self.domain).map_err(|e| anyhow::anyhow!("Invalid Domain: {e}"))?;
         let relative_path = RelativePath::new(self.relative_path)
-            .map_err(|e| anyhow::anyhow!("Invalid RelativePath: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid RelativePath: {e}"))?;
         let flags = FileFlags::from_bits_truncate(self.flags);
 
         Ok(File::reconstruct(
