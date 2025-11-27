@@ -53,17 +53,29 @@ idig --backup-dir ~/Library/Application\ Support/MobileSync/Backup/XXXXXXXX-XXXX
 ### Command Options
 
 ```
-Usage: idig --backup-dir <BACKUP_DIR> <COMMAND>
+Usage: idig <COMMAND>
 
 Commands:
+  list     List all available backups [aliases: ls]
   search   Search for files based on various criteria
   extract  Extract files based on search criteria
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -b, --backup-dir <BACKUP_DIR>  iPhone backup directory path (containing Manifest.db)
-  -h, --help                     Print help
-  -V, --version                  Print version
+  -h, --help     Print help
+  -V, --version  Print version
+```
+
+#### List Command
+
+```
+List all available backups
+
+Usage: idig list [OPTIONS]
+
+Options:
+      --backups-root <BACKUPS_ROOT>  Root directory containing multiple backup folders [default: "~/Library/Application Support/MobileSync/Backup"]
+  -h, --help                         Print help
 ```
 
 #### Search Command
@@ -71,9 +83,10 @@ Options:
 ```
 Search for files based on various criteria
 
-Usage: idig --backup-dir <BACKUP_DIR> search [OPTIONS]
+Usage: idig search [OPTIONS] --backup-dir <BACKUP_DIR>
 
 Options:
+  -b, --backup-dir <BACKUP_DIR>            iPhone backup directory path (containing Manifest.db)
       --domain-exact <DOMAIN_EXACT>        Exact domain match
       --domain-contains <DOMAIN_CONTAINS>  Partial domain match
       --path-exact <PATH_EXACT>            Exact path match
@@ -87,14 +100,15 @@ Options:
 ```
 Extract files based on search criteria
 
-Usage: idig --backup-dir <BACKUP_DIR> extract [OPTIONS] --output <OUTPUT>
+Usage: idig extract [OPTIONS] --backup-dir <BACKUP_DIR> --output <OUTPUT>
 
 Options:
+  -b, --backup-dir <BACKUP_DIR>            iPhone backup directory path (containing Manifest.db)
   -o, --output <OUTPUT>                    Output directory for extracted files
       --domain-exact <DOMAIN_EXACT>        Exact domain match
       --domain-contains <DOMAIN_CONTAINS>  Partial domain match
       --path-exact <PATH_EXACT>            Exact path match
       --path-contains <PATH_CONTAINS>      Partial path match
       --or                                 Use OR logic instead of AND (default is AND)
-  -h, --help                               Print help
+  -h, --help
 ```
