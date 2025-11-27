@@ -1,6 +1,6 @@
 use std::fmt;
 
-/// `MetadatId` - Value Object representing a unique id of a backup
+/// `MetadataId` - Value Object representing a unique id of a backup
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MetadataId(String);
 
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn test_metadata_id_invalid_characters() {
         let invalid_chars = "_1b2c3d4e5f67890123456789"; // '_' is not allowed
-        //
+
         assert!(MetadataId::new(invalid_chars).is_err());
     }
 
