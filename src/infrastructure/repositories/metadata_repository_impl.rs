@@ -136,3 +136,338 @@ impl MetadataRepositoryImpl {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Result;
+    use assert_fs::TempDir;
+    use assert_fs::prelude::*;
+    use pretty_assertions::assert_eq;
+
+    // Helper to create a valid Info.plist content
+    fn create_valid_plist_content() -> String {
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Device Name</key>
+    <string>iPhone 15 Pro</string>
+    <key>Last Backup Date</key>
+    <string>2024-01-15T10:30:00Z</string>
+    <key>Product Name</key>
+    <string>iPhone16,1</string>
+    <key>Unique Identifier</key>
+    <string>a1b2c3d4e5f67890123456789</string>
+</dict>
+</plist>"#.to_owned()
+    }
+
+    // Helper to create an invalid plist content
+    fn create_invalid_plist_content() -> String {
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Device Name</key>
+    <string>iPhone 15 Pro</string>
+    <key>Last Backup Date</key>
+    <string>invalid-date</string>
+    <key>Product Name</key>
+    <string>iPhone16,1</string>
+    <key>Unique Identifier</key>
+    <string>invalid-id</string>
+</dict>
+</plist>"#.to_owned()
+    }
+
+    // Helper to create a malformed plist content
+    fn create_malformed_plist_content() -> String {
+        "This is not a valid plist file".to_owned()
+    }
+
+    #[test]
+    fn test_metadata_repository_impl_new() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let repo = MetadataRepositoryImpl::new(temp_dir.path());
+
+        // Verify the backup_root is set correctly
+        assert_eq!(repo.backup_root, temp_dir.path().to_path_buf());
+        Ok(())
+    }
+
+    #[test]
+    fn test_load_from_plist_content_success() -> Result<()> {
+        let plist_content = create_valid_plist_content();
+        let metadata = MetadataRepositoryImpl::load_from_plist_content(plist_content.as_bytes())?;
+
+        assert_eq!(metadata.id().value(), "a1b2c3d4e5f67890123456789");
+        assert_eq!(metadata.device_name(), "iPhone 15 Pro");
+        assert_eq!(metadata.product_name(), "iPhone16,1");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_load_from_plist_content_malformed_plist() {
+        let malformed_content = create_malformed_plist_content();
+        let result = MetadataRepositoryImpl::load_from_plist_content(malformed_content.as_bytes());
+
+        assert!(result.is_err());
+        if let Err(error) = result {
+            let error_message = error.to_string();
+            assert!(error_message.contains("Failed to parse plist content"));
+        }
+    }
+
+    #[test]
+    fn test_load_from_plist_content_invalid_metadata() {
+        let invalid_content = create_invalid_plist_content();
+        let result = MetadataRepositoryImpl::load_from_plist_content(invalid_content.as_bytes());
+
+        assert!(result.is_err());
+        // The error should come from BackupInfo::to_domain validation
+    }
+
+    #[tokio::test]
+    async fn test_find_by_id_success() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let metadata_id = "a1b2c3d4e5f67890123456789";
+
+        // Create backup directory structure
+        temp_dir
+            .child(metadata_id)
+            .child("Info.plist")
+            .write_str(&create_valid_plist_content())?;
+
+        let repo = MetadataRepositoryImpl::new(temp_dir.path());
+        let id = MetadataId::new(metadata_id)?;
+        let metadata = repo.find_by_id(&id).await?;
+
+        assert_eq!(metadata.id().value(), metadata_id);
+        assert_eq!(metadata.device_name(), "iPhone 15 Pro");
+        assert_eq!(metadata.product_name(), "iPhone16,1");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_find_by_id_backup_root_not_exists() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let temp_path = temp_dir.path().to_path_buf(); // Copy the path before closing
+        temp_dir.close()?; // Remove the directory
+
+        let repo = MetadataRepositoryImpl::new(temp_path);
+        let id = MetadataId::new("a1b2c3d4e5f67890123456789")?;
+        let result = repo.find_by_id(&id).await;
+
+        assert!(result.is_err());
+        if let Err(error) = result {
+            let error_message = error.to_string();
+            assert!(error_message.contains("Backup root directory does not exist"));
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_find_by_id_backup_dir_not_exists() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let metadata_id = "a1b2c3d4e5f67890123456789";
+
+        let repo = MetadataRepositoryImpl::new(temp_dir.path());
+        let id = MetadataId::new(metadata_id)?;
+        let result = repo.find_by_id(&id).await;
+
+        assert!(result.is_err());
+        if let Err(error) = result {
+            let error_message = error.to_string();
+            assert!(error_message.contains("Backup directory does not exist"));
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_find_by_id_info_plist_not_exists() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let metadata_id = "a1b2c3d4e5f67890123456789";
+
+        // Create backup directory but no Info.plist
+        temp_dir.child(metadata_id).create_dir_all()?;
+
+        let repo = MetadataRepositoryImpl::new(temp_dir.path());
+        let id = MetadataId::new(metadata_id)?;
+        let result = repo.find_by_id(&id).await;
+
+        assert!(result.is_err());
+        if let Err(error) = result {
+            let error_message = error.to_string();
+            assert!(error_message.contains("Info.plist file not found"));
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_find_by_id_invalid_plist() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let metadata_id = "a1b2c3d4e5f67890123456789";
+
+        // Create backup directory with invalid plist
+        temp_dir
+            .child(metadata_id)
+            .child("Info.plist")
+            .write_str(&create_malformed_plist_content())?;
+
+        let repo = MetadataRepositoryImpl::new(temp_dir.path());
+        let id = MetadataId::new(metadata_id)?;
+        let result = repo.find_by_id(&id).await;
+
+        assert!(result.is_err());
+        if let Err(error) = result {
+            let error_message = error.to_string();
+            assert!(error_message.contains("Failed to parse Info.plist file"));
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_find_all_success() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        // Create multiple backup directories
+        let backup1_id = "a1b2c3d4e5f67890123456789";
+        let backup2_id = "b2c3d4e5f67890123456789ab";
+
+        temp_dir
+            .child(backup1_id)
+            .child("Info.plist")
+            .write_str(&create_valid_plist_content())?;
+
+        // Create second backup with different device name
+        let plist2 = create_valid_plist_content()
+            .replace("iPhone 15 Pro", "iPad Pro")
+            .replace("a1b2c3d4e5f67890123456789", backup2_id);
+
+        temp_dir
+            .child(backup2_id)
+            .child("Info.plist")
+            .write_str(&plist2)?;
+
+        let repo = MetadataRepositoryImpl::new(temp_dir.path());
+        let metadata_list = repo.find_all().await?;
+
+        assert_eq!(metadata_list.len(), 2);
+
+        // Sort by device name for predictable testing
+        let mut sorted_metadata = metadata_list;
+        sorted_metadata.sort_by(|a, b| a.device_name().cmp(b.device_name()));
+
+        assert_eq!(sorted_metadata[0].device_name(), "iPad Pro");
+        assert_eq!(sorted_metadata[1].device_name(), "iPhone 15 Pro");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_find_all_with_invalid_directories() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        // Create valid backup
+        let valid_backup_id = "a1b2c3d4e5f67890123456789";
+        temp_dir
+            .child(valid_backup_id)
+            .child("Info.plist")
+            .write_str(&create_valid_plist_content())?;
+
+        // Create invalid backup (no Info.plist)
+        temp_dir.child("invalid_backup").create_dir_all()?;
+
+        // Create regular file (should be skipped)
+        temp_dir
+            .child("regular_file.txt")
+            .write_str("not a directory")?;
+
+        // Create backup with invalid plist
+        temp_dir
+            .child("invalid_plist_backup")
+            .child("Info.plist")
+            .write_str(&create_malformed_plist_content())?;
+
+        let repo = MetadataRepositoryImpl::new(temp_dir.path());
+        let metadata_list = repo.find_all().await?;
+
+        // Should only return the valid backup
+        assert_eq!(metadata_list.len(), 1);
+        assert_eq!(metadata_list[0].device_name(), "iPhone 15 Pro");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_find_all_empty_directory() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        let repo = MetadataRepositoryImpl::new(temp_dir.path());
+        let metadata_list = repo.find_all().await?;
+
+        assert!(metadata_list.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_find_all_backup_root_not_exists() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let temp_path = temp_dir.path().to_path_buf(); // Copy the path before closing
+        temp_dir.close()?; // Remove the directory
+
+        let repo = MetadataRepositoryImpl::new(temp_path);
+        let result = repo.find_all().await;
+
+        assert!(result.is_err());
+        if let Err(error) = result {
+            let error_message = error.to_string();
+            assert!(error_message.contains("Backup root directory does not exist"));
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_find_by_backup_directory_success() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let backup_dir = temp_dir.child("test_backup");
+
+        backup_dir
+            .child("Info.plist")
+            .write_str(&create_valid_plist_content())?;
+
+        let repo = MetadataRepositoryImpl::new(temp_dir.path());
+        let metadata = repo.find_by_backup_directory(backup_dir.path()).await?;
+
+        assert_eq!(metadata.device_name(), "iPhone 15 Pro");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_find_by_backup_directory_not_directory() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.child("not_a_directory.txt");
+        file_path.write_str("this is a file")?;
+
+        let repo = MetadataRepositoryImpl::new(temp_dir.path());
+        let result = repo.find_by_backup_directory(file_path.path()).await;
+
+        assert!(result.is_err());
+        if let Err(error) = result {
+            let error_message = error.to_string();
+            assert!(error_message.contains("Path is not a directory"));
+        }
+
+        Ok(())
+    }
+}
