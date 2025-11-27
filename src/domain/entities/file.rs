@@ -7,7 +7,7 @@ use crate::domain::value_objects::{Domain, FileFlags, FileId, RelativePath};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct File {
     /// Unique file identifier (SHA1 hash)
-    file_id: FileId,
+    id: FileId,
     /// Application identifier
     domain: Domain,
     /// Relative path within a backup
@@ -15,7 +15,7 @@ pub struct File {
     /// File attribute flags
     flags: FileFlags,
     /// File metadata in plist format
-    file_metadata: Vec<u8>,
+    metadata: Vec<u8>,
 }
 
 impl File {
@@ -26,20 +26,20 @@ impl File {
     #[must_use]
     #[inline]
     pub const fn new(
-        file_id: FileId,
+        id: FileId,
         domain: Domain,
         relative_path: RelativePath,
         flags: FileFlags,
-        file_metadata: Vec<u8>,
+        metadata: Vec<u8>,
     ) -> Self {
         // Future business rules can be applied here
         // e.g., default flag setting, metadata validation, etc.
         Self {
-            file_id,
+            id,
             domain,
             relative_path,
             flags,
-            file_metadata,
+            metadata,
         }
     }
 
@@ -51,18 +51,18 @@ impl File {
     #[must_use]
     #[inline]
     pub const fn reconstruct(
-        file_id: FileId,
+        id: FileId,
         domain: Domain,
         relative_path: RelativePath,
         flags: FileFlags,
-        file_metadata: Vec<u8>,
+        metadata: Vec<u8>,
     ) -> Self {
         Self {
-            file_id,
+            id,
             domain,
             relative_path,
             flags,
-            file_metadata,
+            metadata,
         }
     }
 
@@ -70,8 +70,8 @@ impl File {
     /// Returns the file ID
     #[must_use]
     #[inline]
-    pub const fn file_id(&self) -> &FileId {
-        &self.file_id
+    pub const fn id(&self) -> &FileId {
+        &self.id
     }
 
     /// Returns the domain
@@ -98,21 +98,21 @@ impl File {
     /// Returns the file metadata
     #[must_use]
     #[inline]
-    pub fn file_metadata(&self) -> &[u8] {
-        &self.file_metadata
+    pub fn metadata(&self) -> &[u8] {
+        &self.metadata
     }
 
     // Business logic methods
     /// Updates the file flags
     #[inline]
-    pub fn update_flags(&mut self, new_flags: FileFlags) {
+    pub const fn update_flags(&mut self, new_flags: FileFlags) {
         self.flags = new_flags;
     }
 
     /// Updates the file metadata
     #[inline]
     pub fn update_metadata(&mut self, new_metadata: Vec<u8>) {
-        self.file_metadata = new_metadata;
+        self.metadata = new_metadata;
     }
 
     /// Checks if the file has a specific flag
@@ -131,61 +131,61 @@ mod tests {
 
     #[test]
     fn test_file_entity_creation() -> Result<()> {
-        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
+        let id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
         let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
         let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
         let flags = FileFlags::REGULAR_FILE;
         let metadata = b"test metadata".to_vec();
 
         let file = File::new(
-            file_id.clone(),
+            id.clone(),
             domain.clone(),
             relative_path.clone(),
             flags.clone(),
             metadata.clone(),
         );
 
-        assert_eq!(file.file_id(), &file_id);
+        assert_eq!(file.id(), &id);
         assert_eq!(file.domain(), &domain);
         assert_eq!(file.relative_path(), &relative_path);
         assert_eq!(file.flags(), &flags);
-        assert_eq!(file.file_metadata(), &metadata);
+        assert_eq!(file.metadata(), &metadata);
         Ok(())
     }
 
     #[test]
     fn test_file_entity_reconstruct() -> Result<()> {
-        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
+        let id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
         let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
         let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
         let flags = FileFlags::REGULAR_FILE;
         let metadata = b"test metadata".to_vec();
 
         let file = File::reconstruct(
-            file_id.clone(),
+            id.clone(),
             domain.clone(),
             relative_path.clone(),
             flags.clone(),
             metadata.clone(),
         );
 
-        assert_eq!(file.file_id(), &file_id);
+        assert_eq!(file.id(), &id);
         assert_eq!(file.domain(), &domain);
         assert_eq!(file.relative_path(), &relative_path);
         assert_eq!(file.flags(), &flags);
-        assert_eq!(file.file_metadata(), &metadata);
+        assert_eq!(file.metadata(), &metadata);
         Ok(())
     }
 
     #[test]
     fn test_file_entity_update_flags() -> Result<()> {
-        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
+        let id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
         let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
         let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
         let flags = FileFlags::REGULAR_FILE;
         let metadata = b"test metadata".to_vec();
 
-        let mut file = File::new(file_id, domain, relative_path, flags, metadata);
+        let mut file = File::new(id, domain, relative_path, flags, metadata);
 
         let new_flags = FileFlags::DIRECTORY;
         file.update_flags(new_flags.clone());
@@ -198,18 +198,18 @@ mod tests {
 
     #[test]
     fn test_file_entity_update_metadata() -> Result<()> {
-        let file_id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
+        let id = FileId::new("a1b2c3d4e5f6789012345678901234567890abcd")?;
         let domain = Domain::new("AppDomain-com.apple.news".to_owned())?;
         let relative_path = RelativePath::new("Documents/test.txt".to_owned())?;
         let flags = FileFlags::REGULAR_FILE;
         let metadata = b"test metadata".to_vec();
 
-        let mut file = File::new(file_id, domain, relative_path, flags, metadata);
+        let mut file = File::new(id, domain, relative_path, flags, metadata);
 
         let new_metadata = b"updated metadata".to_vec();
         file.update_metadata(new_metadata.clone());
 
-        assert_eq!(file.file_metadata(), &new_metadata);
+        assert_eq!(file.metadata(), &new_metadata);
         Ok(())
     }
 }
