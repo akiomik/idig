@@ -28,7 +28,6 @@ assert_fs = "1.1"
 predicates = "3.1"
 pretty_assertions = "1.4.1"
 sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros", "mock"] }
-tempfile = "3.8"
 
 [lints.clippy]
 cargo = { level = "warn", priority = -1 }

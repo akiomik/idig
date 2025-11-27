@@ -1041,7 +1041,6 @@ dependencies = [
  "serde",
  "shellexpand",
  "tabled",
- "tempfile",
  "tokio",
 ]
 
