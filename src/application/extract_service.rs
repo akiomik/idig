@@ -35,8 +35,8 @@ impl ExtractService {
     pub async fn extract<R: FileRepository>(
         &self,
         repository: &R,
-        backup_dir: &str,
-        output_dir: &str,
+        backup_dir: impl AsRef<Path>,
+        output_dir: impl AsRef<Path>,
         params: SearchParams,
     ) -> Result<ExtractResult> {
         // Search for files matching the criteria
@@ -61,9 +61,15 @@ impl ExtractService {
         };
 
         // Create output directory if it doesn't exist
-        fs::create_dir_all(output_dir)
-            .with_context(|| format!("Failed to create output directory: {output_dir}"))?;
+        let output_dir = output_dir.as_ref();
+        fs::create_dir_all(output_dir).with_context(|| {
+            format!(
+                "Failed to create output directory: {}",
+                output_dir.display()
+            )
+        })?;
 
+        let backup_dir = backup_dir.as_ref();
         for file in files {
             match Self::extract_single_file(&file, backup_dir, output_dir) {
                 Ok(true) => {
@@ -86,12 +92,12 @@ impl ExtractService {
     /// Extracts a single file
     ///
     /// Returns Ok(true) if extracted, Ok(false) if skipped, Err if failed
-    fn extract_single_file(file: &File, backup_dir: &str, output_dir: &str) -> Result<bool> {
+    fn extract_single_file(file: &File, backup_dir: &Path, output_dir: &Path) -> Result<bool> {
         let file_id_str = file.file_id().to_string();
 
         // Construct source path: backup_dir/XX/fileID (where XX is first 2 chars of fileID)
         let prefix = &file_id_str[0..2];
-        let source_path = Path::new(backup_dir).join(prefix).join(&file_id_str);
+        let source_path = backup_dir.join(prefix).join(&file_id_str);
 
         // Skip if source file doesn't exist
         if !source_path.exists() {
@@ -99,7 +105,7 @@ impl ExtractService {
         }
 
         // Construct destination path preserving relative path structure
-        let dest_path = Path::new(output_dir).join(file.relative_path().to_string());
+        let dest_path = output_dir.join(file.relative_path().to_string());
 
         // Create parent directories if they don't exist
         if let Some(parent) = dest_path.parent() {
@@ -160,17 +166,10 @@ mod tests {
     use crate::domain::repositories::FileRepository;
     use crate::domain::value_objects::{Domain, FileFlags, FileId, RelativePath};
     use anyhow::Result;
+    use assert_fs::TempDir;
+    use assert_fs::prelude::*;
+    use predicates::path;
     use pretty_assertions::assert_eq;
-    use std::fs;
-    use tempfile::TempDir;
-
-    // Helper function to safely convert TempDir path to string
-    fn temp_dir_to_str(temp_dir: &TempDir) -> Result<&str> {
-        temp_dir
-            .path()
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Failed to convert temp directory path to string"))
-    }
 
     // Mock repository for testing
     struct MockFileRepository {
@@ -248,12 +247,7 @@ mod tests {
         let temp_output = TempDir::new()?;
 
         let result = service
-            .extract(
-                &repo,
-                temp_dir_to_str(&temp_backup)?,
-                temp_dir_to_str(&temp_output)?,
-                params,
-            )
+            .extract(&repo, temp_backup.path(), temp_output.path(), params)
             .await?;
 
         assert_eq!(result.extracted_count, 0);
@@ -272,12 +266,7 @@ mod tests {
         let temp_output = TempDir::new()?;
 
         let result = service
-            .extract(
-                &repo,
-                temp_dir_to_str(&temp_backup)?,
-                temp_dir_to_str(&temp_output)?,
-                params,
-            )
+            .extract(&repo, temp_backup.path(), temp_output.path(), params)
             .await;
 
         assert!(result.is_err());
@@ -301,12 +290,7 @@ mod tests {
         // Don't create the source file - it should be skipped
 
         let result = service
-            .extract(
-                &repo,
-                temp_dir_to_str(&temp_backup)?,
-                temp_dir_to_str(&temp_output)?,
-                params,
-            )
+            .extract(&repo, temp_backup.path(), temp_output.path(), params)
             .await?;
 
         assert_eq!(result.extracted_count, 0);
@@ -328,18 +312,13 @@ mod tests {
         // Create the source file in backup directory structure
         let file_id_str = test_file.file_id().to_string();
         let prefix = &file_id_str[0..2];
-        let source_dir = temp_backup.path().join(prefix);
-        fs::create_dir_all(&source_dir)?;
-        let source_file_path = source_dir.join(&file_id_str);
-        fs::write(&source_file_path, b"test file content")?;
+        temp_backup
+            .child(prefix)
+            .child(&file_id_str)
+            .write_str("test file content")?;
 
         let result = service
-            .extract(
-                &repo,
-                temp_dir_to_str(&temp_backup)?,
-                temp_dir_to_str(&temp_output)?,
-                params,
-            )
+            .extract(&repo, temp_backup.path(), temp_output.path(), params)
             .await?;
 
         assert_eq!(result.extracted_count, 1);
@@ -347,10 +326,10 @@ mod tests {
         assert!(result.errors.is_empty());
 
         // Verify the file was copied to the correct destination
-        let dest_file_path = temp_output.path().join("Documents/test.txt");
-        assert!(dest_file_path.exists());
-        let content = fs::read_to_string(&dest_file_path)?;
-        assert_eq!(content, "test file content");
+        temp_output
+            .child("Documents")
+            .child("test.txt")
+            .assert("test file content");
 
         Ok(())
     }
@@ -386,19 +365,14 @@ mod tests {
         for file in [&file1, &file3] {
             let file_id_str = file.file_id().to_string();
             let prefix = &file_id_str[0..2];
-            let source_dir = temp_backup.path().join(prefix);
-            fs::create_dir_all(&source_dir)?;
-            let source_file_path = source_dir.join(&file_id_str);
-            fs::write(&source_file_path, format!("content for {file_id_str}"))?;
+            temp_backup
+                .child(prefix)
+                .child(&file_id_str)
+                .write_str(&format!("content for {file_id_str}"))?;
         }
 
         let result = service
-            .extract(
-                &repo,
-                temp_dir_to_str(&temp_backup)?,
-                temp_dir_to_str(&temp_output)?,
-                params,
-            )
+            .extract(&repo, temp_backup.path(), temp_output.path(), params)
             .await?;
 
         assert_eq!(result.extracted_count, 2);
@@ -406,9 +380,18 @@ mod tests {
         assert!(result.errors.is_empty());
 
         // Verify the extracted files exist
-        assert!(temp_output.path().join("Documents/file1.txt").exists());
-        assert!(temp_output.path().join("Music/song.mp3").exists());
-        assert!(!temp_output.path().join("Photos/image.jpg").exists());
+        temp_output
+            .child("Documents")
+            .child("file1.txt")
+            .assert(path::exists());
+        temp_output
+            .child("Music")
+            .child("song.mp3")
+            .assert(path::exists());
+        temp_output
+            .child("Photos")
+            .child("image.jpg")
+            .assert(path::missing());
 
         Ok(())
     }
@@ -430,18 +413,13 @@ mod tests {
         // Create the source file
         let file_id_str = test_file.file_id().to_string();
         let prefix = &file_id_str[0..2];
-        let source_dir = temp_backup.path().join(prefix);
-        fs::create_dir_all(&source_dir)?;
-        let source_file_path = source_dir.join(&file_id_str);
-        fs::write(&source_file_path, b"fn main() { println!(\"Hello!\"); }")?;
+        temp_backup
+            .child(prefix)
+            .child(&file_id_str)
+            .write_str("fn main() { println!(\"Hello!\"); }")?;
 
         let result = service
-            .extract(
-                &repo,
-                temp_dir_to_str(&temp_backup)?,
-                temp_dir_to_str(&temp_output)?,
-                params,
-            )
+            .extract(&repo, temp_backup.path(), temp_output.path(), params)
             .await?;
 
         assert_eq!(result.extracted_count, 1);
@@ -449,12 +427,13 @@ mod tests {
         assert!(result.errors.is_empty());
 
         // Verify nested directory structure is created correctly
-        let dest_file_path = temp_output
-            .path()
-            .join("Documents/Projects/MyApp/src/main.rs");
-        assert!(dest_file_path.exists());
-        let content = fs::read_to_string(&dest_file_path)?;
-        assert_eq!(content, "fn main() { println!(\"Hello!\"); }");
+        temp_output
+            .child("Documents")
+            .child("Projects")
+            .child("MyApp")
+            .child("src")
+            .child("main.rs")
+            .assert("fn main() { println!(\"Hello!\"); }");
 
         Ok(())
     }

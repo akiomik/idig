@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
                 SearchParams::new(domain_exact, domain_contains, path_exact, path_contains, or);
 
             let result = extract_service
-                .extract(&file_repo, &backup_path.to_string_lossy(), &output, params)
+                .extract(&file_repo, backup_path, &output, params)
                 .await?;
 
             display_service.display_extract_results(&result);
