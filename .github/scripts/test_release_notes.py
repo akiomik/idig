@@ -13,11 +13,11 @@ class ReleaseNotesTest(unittest.TestCase):
 
     def test_current_release_has_only_its_own_changes(self):
         changelog = (Path(__file__).resolve().parents[2] / "CHANGELOG.md").read_text()
-        body = release_notes(changelog, "v0.2.0")
-        self.assertTrue(body.startswith("## ⚠️ BREAKING CHANGES\n"))
-        self.assertIn("## Other Changes\n", body)
-        self.assertNotIn("Initial release!", body)
-        self.assertNotIn("## 0.2.0", body)
+        body = release_notes(changelog, "v0.2.1")
+        self.assertTrue(body.startswith("## Fixed\n"))
+        self.assertIn("## Security\n", body)
+        self.assertNotIn("list (`ls`) command", body)
+        self.assertNotIn("## [Unreleased]", body)
 
     def test_fails_for_a_missing_version(self):
         with self.assertRaisesRegex(ValueError, "found 0"):
