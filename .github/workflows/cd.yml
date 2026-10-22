@@ -8,11 +8,20 @@ on:
   pull_request:
     paths:
       - '.github/workflows/cd.yml'
+      - '.github/scripts/release_notes.py'
+      - '.github/scripts/test_release_notes.py'
 
 permissions:
   contents: read
 
 jobs:
+  release-notes:
+    name: Release notes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 -m unittest discover -s .github/scripts -p 'test_release_notes.py'
+
   package:
     name: Package - ${{ matrix.platform.os-name }}
     runs-on: ${{ matrix.platform.runs-on }}
@@ -54,14 +63,16 @@ jobs:
   publish:
     name: Publish GitHub release
     if: startsWith(github.ref, 'refs/tags/')
-    needs: package
+    needs: [package, release-notes]
     runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: write
     steps:
       - uses: actions/checkout@v6
+      - name: Prepare release notes for this tag
+        run: python3 .github/scripts/release_notes.py "$GITHUB_REF_NAME" CHANGELOG.md RELEASE_NOTES.md
       - uses: houseabsolute/actions-rust-release/publish@v1.0.1
         with:
           executable-name: idig
-          changes-file: CHANGELOG.md
+          changes-file: RELEASE_NOTES.md
