@@ -45,7 +45,6 @@ jobs:
       with:
         target: ${{ matrix.platform.target }}
         cache: false
-        build-warnings: ''
     - name: Build binary
       uses: houseabsolute/actions-rust-cross@v1.0.8
       with:
