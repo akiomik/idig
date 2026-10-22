@@ -13,7 +13,7 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0"
 bitflags = "2.10"
-chrono = "0.4.42"
+chrono = "0.4.43"
 clap = { version = "4.5.53", features = ["derive"] }
 dirs = "6.0"
 plist = "1.10.3"
@@ -21,7 +21,7 @@ sea-orm = { version = "1.1", default-features = false, features = ["sqlx-sqlite"
 serde = { version = "1.0", features = ["derive"] }
 shellexpand = "3.1"
 tabled = "0.20"
-tokio = { version = "1.48", features = ["full"] }
+tokio = { version = "1.49", features = ["full"] }
 
 [dev-dependencies]
 assert_fs = "1.1"
