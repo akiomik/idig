@@ -23,6 +23,11 @@ class ReleaseNotesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "found 0"):
             release_notes("# Changelog\n\n## 0.2.0\n\n* Existing\n", "v0.3.0")
 
+    def test_accepts_versions_with_and_without_v_prefix(self):
+        changelog = "# Changelog\n\n## 0.3.0\n\n* New\n"
+        self.assertEqual("* New\n", release_notes(changelog, "v0.3.0"))
+        self.assertEqual("* New\n", release_notes(changelog, "0.3.0"))
+
 
 if __name__ == "__main__":
     unittest.main()
