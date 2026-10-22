@@ -6,10 +6,6 @@ on:
       - 'v[0-9]*'
       - '[0-9]*'
   pull_request:
-    paths:
-      - '.github/workflows/cd.yml'
-      - '.github/scripts/release_notes.py'
-      - '.github/scripts/test_release_notes.py'
 
 permissions:
   contents: read
@@ -21,9 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: python3 -m unittest discover -s .github/scripts -p 'test_release_notes.py'
+      - name: Validate release tag and notes before packaging
+        if: github.ref_type == 'tag'
+        run: python3 .github/scripts/release_notes.py "$GITHUB_REF_NAME" CHANGELOG.md RELEASE_NOTES.md
 
   package:
     name: Package - ${{ matrix.platform.os-name }}
+    needs: release-notes
     runs-on: ${{ matrix.platform.runs-on }}
 
     strategy:
