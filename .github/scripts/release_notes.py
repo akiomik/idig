@@ -7,12 +7,7 @@ from pathlib import Path
 
 VERSION_HEADING = re.compile(r"^## ([^\s(]+)(?:\s|$)")
 SUBHEADING = re.compile(r"^(#{3,6})(?= )", re.MULTILINE)
-VERSION_TAG = re.compile(r"v?[0-9]+\.[0-9]+\.[0-9]+")
-
-
 def release_notes(changelog: str, tag: str) -> str:
-    if not VERSION_TAG.fullmatch(tag):
-        raise ValueError(f"expected a version tag in vX.Y.Z or X.Y.Z form, got {tag}")
     version = tag.removeprefix("v")
     lines = changelog.splitlines(keepends=True)
     headings = [

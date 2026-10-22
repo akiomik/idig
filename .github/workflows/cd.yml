@@ -3,8 +3,8 @@ name: CD # Continuous Deployment
 on:
   push:
     tags:
-      - 'v[0-9]*'
-      - '[0-9]*'
+      - 'v*.*.*'
+      - '[0-9]*.*.*'
   pull_request:
 
 permissions:
@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: python3 -m unittest discover -s .github/scripts -p 'test_release_notes.py'
-      - name: Validate release tag and notes before packaging
+      - name: Prepare release notes before packaging
         if: github.ref_type == 'tag'
         run: python3 .github/scripts/release_notes.py "$GITHUB_REF_NAME" CHANGELOG.md RELEASE_NOTES.md
 
