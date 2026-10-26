@@ -14,7 +14,7 @@ jobs:
     name: Release notes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: python3 -m unittest discover -s .github/scripts -p 'test_release_notes.py'
       - name: Prepare release notes before packaging
         if: github.ref_type == 'tag'
@@ -38,7 +38,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     - name: Install the pinned Rust toolchain and target
       uses: actions-rust-lang/setup-rust-toolchain@v2
       with:
@@ -67,7 +67,7 @@ jobs:
       actions: read
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Prepare release notes for this tag
         run: python3 .github/scripts/release_notes.py "$GITHUB_REF_NAME" CHANGELOG.md RELEASE_NOTES.md
       - uses: houseabsolute/actions-rust-release/publish@v1.0.1
