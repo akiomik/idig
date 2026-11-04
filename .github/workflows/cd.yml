@@ -14,12 +14,26 @@ jobs:
     name: Release notes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       - run: python3 -m unittest discover -s .github/scripts -p 'test_release_notes.py'
+      - name: Check that the tag matches the package version
+        if: github.ref_type == 'tag'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')"
+          if [ "$tag" != "$version" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match package version ${version}" >&2
+            exit 1
+          fi
       - name: Prepare release notes before packaging
         if: github.ref_type == 'tag'
         run: python3 .github/scripts/release_notes.py "$GITHUB_REF_NAME" CHANGELOG.md RELEASE_NOTES.md
 
+  # Builds the binaries, which runs the build scripts and proc macros of every
+  # dependency, so these jobs can only read the repository. The publish job
+  # uploads what they package.
   package:
     name: Package - ${{ matrix.platform.os-name }}
     needs: release-notes
@@ -29,48 +43,101 @@ jobs:
       fail-fast: false
       matrix:
         platform:
+          # `archive` is the name the releases have always used.
           - os-name: macOS-x86_64
             runs-on: macOS-latest
             target: x86_64-apple-darwin
+            archive: idig-macOS-x86_64
           - os-name: macOS-aarch64
             runs-on: macOS-latest
             target: aarch64-apple-darwin
+            archive: idig-macOS-arm64
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v7
+      uses: actions/checkout@v7.0.1
+      with:
+        persist-credentials: false
+    # No cache: one saved by another run could carry a poisoned build into
+    # the released binaries.
     - name: Install the pinned Rust toolchain and target
-      uses: actions-rust-lang/setup-rust-toolchain@v2
+      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
       with:
         target: ${{ matrix.platform.target }}
         cache: false
     - name: Build binary
-      uses: houseabsolute/actions-rust-cross@v1.0.8
-      with:
-        command: build
-        target: ${{ matrix.platform.target }}
-        args: "--locked --release"
-        strip: true
+      run: cargo build --locked --release --target ${{ matrix.platform.target }}
+      env:
+        CARGO_PROFILE_RELEASE_STRIP: true
+    # The archive holds the binary, CHANGELOG.md and README.md at its top
+    # level.
     - name: Package artifacts
-      uses: houseabsolute/actions-rust-release@v1.0.1
+      env:
+        ARCHIVE: ${{ matrix.platform.archive }}.tar.gz
+        TARGET: ${{ matrix.platform.target }}
+      run: |
+        staging="$(mktemp -d)"
+        cp "target/${TARGET}/release/idig" CHANGELOG.md README.md "$staging"
+        tar czf "$ARCHIVE" -C "$staging" idig CHANGELOG.md README.md
+        shasum --algorithm 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+    - uses: actions/upload-artifact@v7.0.2
       with:
-        executable-name: idig
-        target: ${{ matrix.platform.target }}
-        changes-file: CHANGELOG.md
+        name: binary-${{ matrix.platform.os-name }}
+        path: ${{ matrix.platform.archive }}.tar.gz*
+        if-no-files-found: error
+        # Long enough to re-run the publish job after a failed upload.
+        retention-days: 7
 
+  # Uploads the packaged binaries in one go. This is the only job that can
+  # write to the repository, so it runs no build and no third-party action:
+  # only the release notes script from this repository and the runner's gh.
   publish:
     name: Publish GitHub release
     if: startsWith(github.ref, 'refs/tags/')
     needs: [package, release-notes]
     runs-on: ubuntu-latest
     permissions:
-      actions: read
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       - name: Prepare release notes for this tag
         run: python3 .github/scripts/release_notes.py "$GITHUB_REF_NAME" CHANGELOG.md RELEASE_NOTES.md
-      - uses: houseabsolute/actions-rust-release/publish@v1.0.1
+      - uses: actions/download-artifact@v8.0.2
         with:
-          executable-name: idig
-          changes-file: RELEASE_NOTES.md
+          pattern: binary-*
+          path: dist
+          merge-multiple: true
+
+      # The package jobs name the files, so check that exactly the expected
+      # set arrived before uploading any of it. Keep the names in step with
+      # the package matrix.
+      - name: Check the packaged files
+        working-directory: dist
+        run: |
+          {
+            for archive in idig-macOS-x86_64 idig-macOS-arm64; do
+              echo "${archive}.tar.gz"
+              echo "${archive}.tar.gz.sha256"
+            done
+          } | sort > ../expected.txt
+          printf '%s\n' * | sort > ../actual.txt
+          diff ../expected.txt ../actual.txt
+
+      # Releases are made either by hand, which creates the tag and so starts
+      # this workflow, or by pushing the tag. Add to the release when it
+      # exists, keeping its notes, and otherwise create it with this tag's
+      # changelog section. `--clobber` lets a re-run replace a partial upload
+      # with the same files from this run's artifacts.
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tags="$(gh release list --limit 1000 --json tagName --jq '.[].tagName')"
+          if grep -qxF "$GITHUB_REF_NAME" <<< "$tags"; then
+            gh release upload "$GITHUB_REF_NAME" --clobber dist/*
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --notes-file RELEASE_NOTES.md dist/*
+          fi

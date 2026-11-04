@@ -2,3 +2,4 @@
 Manifest.db
 Manifest.db-*
 .DS_Store
+__pycache__/
